@@ -51,3 +51,18 @@ export async function requireAdmin(currentPath: string): Promise<AgentosClaims> 
   }
   return claims;
 }
+
+/**
+ * Server-action guard that allows admin OR the resource owner.
+ * Used for updateAgent / EditAgentForm gating where the owner can edit
+ * their own agent without being admin.
+ */
+export async function requireAdminOrOwner(
+  currentPath: string,
+  ownerId: string,
+): Promise<AgentosClaims> {
+  const claims = await requireAgentosRole(currentPath);
+  if (claims.app_role === 'admin') return claims;
+  if (claims.sub === ownerId) return claims;
+  redirect('/agentos/no-access');
+}
