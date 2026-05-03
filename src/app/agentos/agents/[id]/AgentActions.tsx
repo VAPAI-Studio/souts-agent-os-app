@@ -2,22 +2,23 @@
 /**
  * AgentActions — Client Component bar of action buttons on the Agent Detail page.
  *
- * Plan 03-03 buttons (committed here):
- *   - Pause / Resume  (AGENT-05)
- *   - Duplicate       (AGENT-06)
- *   - Delete          (AGENT-07, soft delete)
- *
- * Plan 03-04 (parallel) will append a Trigger Run button here that calls
- * `triggerRun` from ../_actions. The merged version draft (already produced
- * by 03-04 in working tree) preserves all 03-03 buttons; 03-04 will commit
- * the merged version which adds the trigger-run-btn and imports triggerRun.
+ * Buttons:
+ *   - Trigger run     (Plan 03-04 / TASK-01)
+ *   - Pause / Resume  (Plan 03-03 / AGENT-05)
+ *   - Duplicate       (Plan 03-03 / AGENT-06)
+ *   - Delete          (Plan 03-03 / AGENT-07, soft delete)
  *
  * Each button calls a Server Action exported from ../_actions and surfaces
  * `r.error` inline on failure.
+ *
+ * NOTE: this file is the conflict surface with parallel Plan 03-03. Both plans
+ * append into this file. Keep button rendering flat and named so additions can
+ * be slotted in without restructuring.
  */
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  triggerRun,
   pauseAgent,
   resumeAgent,
   duplicateAgent,
@@ -42,6 +43,26 @@ export function AgentActions({ agent }: { agent: AgentSummary }) {
       data-testid="agent-actions"
       style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}
     >
+      {/* Plan 03-04: Trigger Run */}
+      <button
+        data-testid="trigger-run-btn"
+        disabled={isPending || isPaused}
+        title={isPaused ? 'Agent is paused' : 'Trigger a run now'}
+        onClick={() =>
+          startTransition(async () => {
+            setError(null);
+            const r = await triggerRun(agent.id, {});
+            if (!r.ok) {
+              setError(r.error ?? 'trigger failed');
+              return;
+            }
+            if (r.data?.id) router.push(`/agentos/runs/${r.data.id}`);
+          })
+        }
+      >
+        Trigger run
+      </button>
+
       {/* Plan 03-03: Pause / Resume */}
       {!isPaused ? (
         <button
