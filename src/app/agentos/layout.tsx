@@ -29,6 +29,7 @@ export default async function AgentosLayout({ children }: { children: React.Reac
         }}
       >
         <Link href="/agentos">Home</Link>
+        <Link href="/agentos/agents" data-testid="nav-agents">Agents</Link>
         {claims.app_role === 'admin' && (
           <Link href="/agentos/team" data-testid="nav-team">Team</Link>
         )}
