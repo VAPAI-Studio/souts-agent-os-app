@@ -25,6 +25,7 @@ interface NavItem {
 const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { label: 'Agents', href: '/agentos/agents', testId: 'nav-agents' },
   { label: 'Vault', href: '/agentos/vault', testId: 'nav-vault' },
+  { label: 'Projects', href: '/agentos/projects', testId: 'nav-projects' },
   { label: 'Team', href: '/agentos/team', testId: 'nav-team', adminOnly: true },
   { label: 'Runs', href: '/agentos/agents', testId: 'nav-runs' }, // placeholder href
   { label: 'Logs', href: '/agentos/logs', testId: 'nav-logs' },
