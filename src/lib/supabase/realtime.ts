@@ -45,6 +45,12 @@ export interface RunLogRow {
 /**
  * Subscribe to UPDATE events on agentos.agent_runs filtered by id.
  * Returns the latest merged row (initial seed + live UPDATEs).
+ *
+ * Realtime + custom schema + RLS: the Realtime authorizer evaluates SELECT
+ * policies as the JWT subject. Without realtime.setAuth(), the WS evaluates
+ * as anon and agentos.* events are filtered out. We pull the access token
+ * from the active session and set it on the realtime client before
+ * subscribing.
  */
 export function useRunStatus(runId: string, initial: AgentRunRow): AgentRunRow {
   const [row, setRow] = useState<AgentRunRow>(initial);
@@ -52,25 +58,37 @@ export function useRunStatus(runId: string, initial: AgentRunRow): AgentRunRow {
 
   useEffect(() => {
     const sb = sbRef.current;
-    const channel = sb
-      .channel(`run-${runId}`)
-      .on(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        'postgres_changes' as any,
-        {
-          event: 'UPDATE',
-          schema: 'agentos',
-          table: 'agent_runs',
-          filter: `id=eq.${runId}`,
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (payload: any) => {
-          setRow((prev) => ({ ...prev, ...(payload.new as AgentRunRow) }));
-        },
-      )
-      .subscribe();
+    let channel: ReturnType<typeof sb.channel> | null = null;
+    let cancelled = false;
+
+    (async () => {
+      const { data: { session } } = await sb.auth.getSession();
+      if (cancelled) return;
+      if (session?.access_token) {
+        sb.realtime.setAuth(session.access_token);
+      }
+      channel = sb
+        .channel(`run-${runId}`)
+        .on(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          'postgres_changes' as any,
+          {
+            event: 'UPDATE',
+            schema: 'agentos',
+            table: 'agent_runs',
+            filter: `id=eq.${runId}`,
+          },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (payload: any) => {
+            setRow((prev) => ({ ...prev, ...(payload.new as AgentRunRow) }));
+          },
+        )
+        .subscribe();
+    })();
+
     return () => {
-      sb.removeChannel(channel);
+      cancelled = true;
+      if (channel) sb.removeChannel(channel);
     };
   }, [runId]);
 
@@ -87,25 +105,37 @@ export function useRunLogs(runId: string, initial: RunLogRow[]): RunLogRow[] {
 
   useEffect(() => {
     const sb = sbRef.current;
-    const channel = sb
-      .channel(`run-logs-${runId}`)
-      .on(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        'postgres_changes' as any,
-        {
-          event: 'INSERT',
-          schema: 'agentos',
-          table: 'run_logs',
-          filter: `run_id=eq.${runId}`,
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (payload: any) => {
-          setRows((prev) => [...prev, payload.new as RunLogRow]);
-        },
-      )
-      .subscribe();
+    let channel: ReturnType<typeof sb.channel> | null = null;
+    let cancelled = false;
+
+    (async () => {
+      const { data: { session } } = await sb.auth.getSession();
+      if (cancelled) return;
+      if (session?.access_token) {
+        sb.realtime.setAuth(session.access_token);
+      }
+      channel = sb
+        .channel(`run-logs-${runId}`)
+        .on(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          'postgres_changes' as any,
+          {
+            event: 'INSERT',
+            schema: 'agentos',
+            table: 'run_logs',
+            filter: `run_id=eq.${runId}`,
+          },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (payload: any) => {
+            setRows((prev) => [...prev, payload.new as RunLogRow]);
+          },
+        )
+        .subscribe();
+    })();
+
     return () => {
-      sb.removeChannel(channel);
+      cancelled = true;
+      if (channel) sb.removeChannel(channel);
     };
   }, [runId]);
 
