@@ -9,6 +9,10 @@
 //   - Re-run button (if status='failed')
 //
 // Plan 03-04 / TASK-04 + TASK-05 + TASK-06.
+// Plan 03-04 retrofit (post 03.1): replaced inline style={{ }} with Plan 02 primitives
+// (Button, Badge, Table) + Tailwind v4 design tokens. Preserves every data-testid:
+//   run-status-badge, cancel-btn, rerun-btn, action-error, cost-usd,
+//   message-log, tool-calls-table, run-output.
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import {
@@ -18,6 +22,9 @@ import {
   type RunLogRow,
 } from '@/lib/supabase/realtime';
 import { cancelRun, rerunRun } from '@/app/agentos/agents/_actions';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/Table';
 
 interface AgentSummary {
   id: string;
@@ -34,6 +41,24 @@ interface ToolCallRow {
   duration_ms: number | null;
   success: boolean | null;
   created_at: string;
+}
+
+type Tone = 'success' | 'warning' | 'destructive' | 'neutral';
+function statusToTone(status: string): Tone {
+  switch (status) {
+    case 'completed':
+      return 'success';
+    case 'queued':
+    case 'dispatched':
+    case 'running':
+    case 'awaiting_approval':
+      return 'warning';
+    case 'failed':
+    case 'cancelled':
+      return 'destructive';
+    default:
+      return 'neutral';
+  }
 }
 
 export function RunDetailLive(props: {
@@ -57,27 +82,28 @@ export function RunDetailLive(props: {
   const canRerun = run.status === 'failed';
 
   return (
-    <section>
-      <header style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-        <h1 style={{ margin: 0 }}>Run {props.runId.slice(0, 8)}…</h1>
-        <span
+    <section className="flex flex-col gap-lg">
+      <div className="flex items-center gap-md flex-wrap">
+        <Badge
+          tone={statusToTone(run.status)}
           data-testid="run-status-badge"
-          style={{
-            padding: '0.25rem 0.5rem',
-            background: badgeColor(run.status),
-            borderRadius: '0.25rem',
-            fontWeight: 'bold',
-          }}
         >
           {run.status}
-        </span>
+        </Badge>
         {props.agent && (
-          <Link href={`/agentos/agents/${props.agent.id}`}>← {props.agent.name}</Link>
+          <Link
+            href={`/agentos/agents/${props.agent.id}`}
+            className="text-accent underline text-[13px]"
+          >
+            ← {props.agent.name}
+          </Link>
         )}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
+        <div className="ml-auto flex items-center gap-sm">
           {canCancel && (
-            <button
+            <Button
               data-testid="cancel-btn"
+              intent="destructive"
+              size="sm"
               disabled={isPending}
               onClick={() =>
                 startTransition(async () => {
@@ -87,12 +113,14 @@ export function RunDetailLive(props: {
                 })
               }
             >
-              Cancel
-            </button>
+              {isPending ? '...' : 'Cancel'}
+            </Button>
           )}
           {canRerun && (
-            <button
+            <Button
               data-testid="rerun-btn"
+              intent="primary"
+              size="sm"
               disabled={isPending}
               onClick={() =>
                 startTransition(async () => {
@@ -109,148 +137,151 @@ export function RunDetailLive(props: {
                 })
               }
             >
-              Re-run
-            </button>
+              {isPending ? '...' : 'Re-run'}
+            </Button>
           )}
         </div>
-      </header>
+      </div>
 
       {error && (
-        <p style={{ color: 'red' }} data-testid="action-error">
+        <p
+          className="text-destructive text-[13px]"
+          data-testid="action-error"
+        >
           {error}
         </p>
       )}
 
-      <h2>Cost &amp; timing</h2>
-      <dl>
-        <dt>Cost (USD)</dt>
-        <dd data-testid="cost-usd">${Number(run.cost_usd ?? 0).toFixed(4)}</dd>
-        <dt>Started</dt>
-        <dd>{run.started_at ? new Date(run.started_at).toLocaleString() : '-'}</dd>
-        <dt>Ended</dt>
-        <dd>{run.completed_at ? new Date(run.completed_at).toLocaleString() : '-'}</dd>
-        {run.error_message && (
-          <>
-            <dt>Error</dt>
-            <dd style={{ color: 'red' }}>{run.error_message}</dd>
-          </>
-        )}
-        {run.modal_container_id && (
-          <>
-            <dt>Modal call id</dt>
-            <dd style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-              {run.modal_container_id}
-            </dd>
-          </>
-        )}
-      </dl>
+      <div>
+        <h2 className="text-[14px] font-semibold mb-sm">Cost &amp; timing</h2>
+        <dl className="grid grid-cols-[max-content_1fr] gap-x-md gap-y-sm text-[13px]">
+          <dt className="text-text-muted">Cost (USD)</dt>
+          <dd className="text-text font-mono" data-testid="cost-usd">
+            ${Number(run.cost_usd ?? 0).toFixed(4)}
+          </dd>
+          <dt className="text-text-muted">Started</dt>
+          <dd className="text-text font-mono">
+            {run.started_at ? new Date(run.started_at).toLocaleString() : '—'}
+          </dd>
+          <dt className="text-text-muted">Ended</dt>
+          <dd className="text-text font-mono">
+            {run.completed_at
+              ? new Date(run.completed_at).toLocaleString()
+              : '—'}
+          </dd>
+          {run.error_message && (
+            <>
+              <dt className="text-text-muted">Error</dt>
+              <dd className="text-destructive">{run.error_message}</dd>
+            </>
+          )}
+          {run.modal_container_id && (
+            <>
+              <dt className="text-text-muted">Modal call id</dt>
+              <dd className="font-mono text-[12px] text-text-muted break-all">
+                {run.modal_container_id}
+              </dd>
+            </>
+          )}
+        </dl>
+      </div>
 
-      <h2>Message log ({logs.length})</h2>
-      <ul
-        data-testid="message-log"
-        style={{ listStyle: 'none', padding: 0, margin: 0 }}
-      >
-        {logs.map((l) => (
-          <li
-            key={l.id}
-            style={{ padding: '0.5rem', borderBottom: '1px solid #eee' }}
-          >
-            <span style={{ fontWeight: 'bold' }}>{l.message_type}</span>
-            <span style={{ marginLeft: '0.5rem', color: '#888' }}>
-              {new Date(l.created_at).toLocaleTimeString()}
-            </span>
-            <pre
-              style={{
-                whiteSpace: 'pre-wrap',
-                margin: '0.25rem 0 0',
-                fontSize: '0.875rem',
-              }}
-            >
-              {JSON.stringify(l.content, null, 2)}
-            </pre>
-          </li>
-        ))}
-      </ul>
-
-      <h2>Tool calls ({toolCalls.length})</h2>
-      <table
-        data-testid="tool-calls-table"
-        style={{ borderCollapse: 'collapse', width: '100%' }}
-      >
-        <thead>
-          <tr style={{ textAlign: 'left', borderBottom: '1px solid #ccc' }}>
-            <th style={{ padding: '0.5rem' }}>Tool</th>
-            <th style={{ padding: '0.5rem' }}>Input</th>
-            <th style={{ padding: '0.5rem' }}>Output</th>
-            <th style={{ padding: '0.5rem' }}>Duration</th>
-            <th style={{ padding: '0.5rem' }}>Success</th>
-          </tr>
-        </thead>
-        <tbody>
-          {toolCalls.map((t) => (
-            <tr key={t.id} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: '0.5rem' }}>{t.tool_name}</td>
-              <td style={{ padding: '0.5rem' }}>
-                <pre
-                  style={{
-                    whiteSpace: 'pre-wrap',
-                    margin: 0,
-                    maxWidth: '20rem',
-                    overflow: 'hidden',
-                    fontSize: '0.75rem',
-                  }}
-                >
-                  {JSON.stringify(t.tool_input)}
-                </pre>
-              </td>
-              <td style={{ padding: '0.5rem' }}>
-                <pre
-                  style={{
-                    whiteSpace: 'pre-wrap',
-                    margin: 0,
-                    maxWidth: '20rem',
-                    overflow: 'hidden',
-                    fontSize: '0.75rem',
-                  }}
-                >
-                  {String(t.tool_output ?? '').slice(0, 200)}
-                </pre>
-              </td>
-              <td style={{ padding: '0.5rem' }}>
-                {t.duration_ms != null ? `${t.duration_ms}ms` : '-'}
-              </td>
-              <td style={{ padding: '0.5rem' }}>{t.success ? '✓' : '✗'}</td>
-            </tr>
+      <div>
+        <h2 className="text-[14px] font-semibold mb-sm">
+          Message log ({logs.length})
+        </h2>
+        <ul
+          data-testid="message-log"
+          className="list-none p-0 m-0 rounded border border-border bg-surface-raised divide-y divide-border"
+        >
+          {logs.length === 0 && (
+            <li className="p-md text-text-muted text-[13px]">
+              No messages yet.
+            </li>
+          )}
+          {logs.map((l) => (
+            <li key={l.id} className="p-md">
+              <div className="flex items-center gap-sm text-[12px]">
+                <span className="font-semibold text-text">{l.message_type}</span>
+                <span className="text-text-muted font-mono">
+                  {new Date(l.created_at).toLocaleTimeString()}
+                </span>
+              </div>
+              <pre className="whitespace-pre-wrap mt-xs text-[12px] font-mono text-text">
+                {JSON.stringify(l.content, null, 2)}
+              </pre>
+            </li>
           ))}
-        </tbody>
-      </table>
+        </ul>
+      </div>
+
+      <div>
+        <h2 className="text-[14px] font-semibold mb-sm">
+          Tool calls ({toolCalls.length})
+        </h2>
+        <Table data-testid="tool-calls-table">
+          <THead>
+            <Tr>
+              <Th>Tool</Th>
+              <Th>Input</Th>
+              <Th>Output</Th>
+              <Th>Duration</Th>
+              <Th>Success</Th>
+            </Tr>
+          </THead>
+          <TBody>
+            {toolCalls.length === 0 && (
+              <Tr>
+                <Td
+                  colSpan={5}
+                  className="text-center text-text-muted p-md"
+                >
+                  No tool calls recorded.
+                </Td>
+              </Tr>
+            )}
+            {toolCalls.map((t) => (
+              <Tr key={t.id}>
+                <Td className="font-mono">{t.tool_name}</Td>
+                <Td>
+                  <pre className="whitespace-pre-wrap m-0 max-w-[20rem] overflow-hidden text-[12px] font-mono text-text-muted">
+                    {JSON.stringify(t.tool_input)}
+                  </pre>
+                </Td>
+                <Td>
+                  <pre className="whitespace-pre-wrap m-0 max-w-[20rem] overflow-hidden text-[12px] font-mono text-text-muted">
+                    {String(t.tool_output ?? '').slice(0, 200)}
+                  </pre>
+                </Td>
+                <Td className="font-mono text-text-muted">
+                  {t.duration_ms != null ? `${t.duration_ms}ms` : '—'}
+                </Td>
+                <Td>
+                  {t.success ? (
+                    <Badge tone="success">ok</Badge>
+                  ) : (
+                    <Badge tone="destructive">fail</Badge>
+                  )}
+                </Td>
+              </Tr>
+            ))}
+          </TBody>
+        </Table>
+      </div>
 
       {run.output != null && (
-        <>
-          <h2>Output</h2>
+        <div>
+          <h2 className="text-[14px] font-semibold mb-sm">Output</h2>
           <pre
             data-testid="run-output"
-            style={{
-              whiteSpace: 'pre-wrap',
-              background: '#f4f4f4',
-              padding: '1rem',
-              borderRadius: '0.25rem',
-            }}
+            className="whitespace-pre-wrap bg-surface-raised border border-border rounded p-md text-[12px] font-mono text-text"
           >
             {typeof run.output === 'object'
               ? JSON.stringify(run.output, null, 2)
               : String(run.output)}
           </pre>
-        </>
+        </div>
       )}
     </section>
   );
-}
-
-function badgeColor(s: string): string {
-  if (s === 'completed') return '#9f9';
-  if (s === 'failed') return '#f99';
-  if (s === 'cancelled') return '#fc9';
-  if (s === 'awaiting_approval') return '#fc9';
-  return '#9cf';
 }
