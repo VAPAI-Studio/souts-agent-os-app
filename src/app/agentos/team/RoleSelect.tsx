@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { changeAgentosRole } from './actions';
+import { Select } from '@/components/ui/Select';
 
 const ROLES = ['admin', 'member', 'agent_owner', 'viewer'] as const;
 type Role = (typeof ROLES)[number];
@@ -25,21 +26,30 @@ export function RoleSelect({ userId, currentRole }: { userId: string; currentRol
     });
   }
 
+  const roleSelectTestId = 'role-select-' + userId;
+
   return (
-    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: '0.25rem' }}>
-      <select
+    <span className="inline-flex flex-col gap-xs">
+      <Select
         value={value}
         onChange={handleChange}
         disabled={pending}
-        data-testid={`role-select-${userId}`}
+        data-testid={roleSelectTestId}
       >
         {ROLES.map((r) => (
           <option key={r} value={r}>
             {r}
           </option>
         ))}
-      </select>
-      {error && <span style={{ color: 'red', fontSize: '0.75rem' }} data-testid={`role-error-${userId}`}>{error}</span>}
+      </Select>
+      {error && (
+        <span
+          className="text-destructive text-[12px]"
+          data-testid={`role-error-${userId}`}
+        >
+          {error}
+        </span>
+      )}
     </span>
   );
 }

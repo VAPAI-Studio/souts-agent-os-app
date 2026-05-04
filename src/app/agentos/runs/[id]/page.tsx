@@ -2,10 +2,13 @@
 // Hands data off to RunDetailLive (Client Component) which subscribes via Supabase Realtime.
 //
 // Plan 03-04 / TASK-04 — full message log + tool calls + cost + cancel + re-run.
+// Plan 03.1-04 — page chrome (PageHeader) wrapper only; RunDetailLive untouched.
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { requireAgentosRole } from '@/lib/supabase/agentos';
 import { createClient } from '@/lib/supabase/server';
 import { RunDetailLive } from './RunDetailLive';
+import { PageHeader } from '@/components/ui/PageHeader';
 import type { AgentRunRow, RunLogRow } from '@/lib/supabase/realtime';
 
 interface AgentSummary {
@@ -68,13 +71,27 @@ export default async function RunDetailPage({
     .order('created_at', { ascending: true })
     .limit(200);
 
+  const runTitle = 'Run ' + id.slice(0, 8);
+  const agentHref = agent ? `/agentos/agents/${agent.id}` : '#';
+  const agentMeta = agent && (
+    <>
+      <span className="text-text-muted text-[12px]">Agent</span>
+      <Link href={agentHref} className="text-accent hover:underline">
+        {agent.name}
+      </Link>
+    </>
+  );
+
   return (
-    <RunDetailLive
-      runId={id}
-      agent={(agent as AgentSummary | null) ?? null}
-      initialRun={run as unknown as AgentRunRow}
-      initialLogs={(logs ?? []) as unknown as RunLogRow[]}
-      initialToolCalls={(toolCalls ?? []) as unknown as ToolCallRow[]}
-    />
+    <section className="flex flex-col gap-lg">
+      <PageHeader title={runTitle} meta={agentMeta} />
+      <RunDetailLive
+        runId={id}
+        agent={(agent as AgentSummary | null) ?? null}
+        initialRun={run as unknown as AgentRunRow}
+        initialLogs={(logs ?? []) as unknown as RunLogRow[]}
+        initialToolCalls={(toolCalls ?? []) as unknown as ToolCallRow[]}
+      />
+    </section>
   );
 }
