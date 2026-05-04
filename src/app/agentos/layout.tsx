@@ -1,46 +1,51 @@
-import Link from 'next/link';
+import * as React from 'react';
 import { getAgentosClaims } from '@/lib/supabase/agentos';
+import { SidebarNav } from './_nav/SidebarNav';
 
-export default async function AgentosLayout({ children }: { children: React.ReactNode }) {
-  // Layout reads claims but does NOT enforce. Each page decides its own gate.
-  // This avoids redirect loops on /agentos/no-access (which is reachable by users
-  // with no app_role) while still showing role-conditioned nav for users that have one.
+/**
+ * AgentOS layout — Server Component.
+ *
+ * Auth contract (DO NOT change):
+ *   - This layout READS claims via getAgentosClaims() (returns null when signed out
+ *     or claims invalid). It does NOT enforce roles — each page keeps its own gate
+ *     so the post-login redirect path stays accurate (RESEARCH.md Pitfall 4).
+ *   - Users with NO app_role (signed in but not provisioned) get a minimal-chrome
+ *     layout so /agentos/no-access can render without sidebar / role badge.
+ *
+ * Visual contract (UI-SPEC.md Layout Shell):
+ *   - Fixed left sidebar 220px wide, full height, surface-raised background.
+ *   - Wordmark + nav + session block — see SidebarNav.tsx.
+ *   - Main content area: flex-1, vertical scroll, p-xl (32px) horizontal/vertical padding.
+ */
+export default async function AgentosLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const claims = await getAgentosClaims();
 
+  // Signed out OR signed in with no agentos role — minimal chrome
+  // (no-access page renders here without sidebar/role-conditional nav).
   if (!claims || !claims.app_role) {
-    // Minimal chrome for the no-access surface — no nav, no role info.
     return (
-      <div style={{ minHeight: '100vh' }}>
-        <main style={{ padding: '2rem' }}>{children}</main>
+      <div className="min-h-screen bg-surface text-text">
+        <main className="p-xl">{children}</main>
       </div>
     );
   }
 
   return (
-    <div data-app-role={claims.app_role} style={{ minHeight: '100vh' }}>
-      <nav
-        aria-label="agentos navigation"
-        style={{
-          display: 'flex',
-          gap: '1rem',
-          padding: '1rem',
-          borderBottom: '1px solid #eee',
-          alignItems: 'center',
-        }}
+    <div
+      data-app-role={claims.app_role}
+      className="flex h-screen bg-surface text-text"
+    >
+      <aside
+        aria-label="agentos sidebar"
+        className="w-[220px] shrink-0 flex flex-col border-r border-border bg-surface-raised"
       >
-        <Link href="/agentos">Home</Link>
-        <Link href="/agentos/agents" data-testid="nav-agents">Agents</Link>
-        {claims.app_role === 'admin' && (
-          <Link href="/agentos/team" data-testid="nav-team">Team</Link>
-        )}
-        <span data-testid="role-badge" style={{ marginLeft: 'auto', fontSize: '0.875rem' }}>
-          Signed in as <strong>{claims.email ?? claims.sub}</strong> · Role: <strong>{claims.app_role}</strong>
-        </span>
-        <form action="/auth/signout" method="post" style={{ display: 'inline' }}>
-          <button type="submit" data-testid="logout-button">Sign out</button>
-        </form>
-      </nav>
-      <main style={{ padding: '2rem' }}>{children}</main>
+        <SidebarNav email={claims.email} role={claims.app_role} />
+      </aside>
+      <main className="flex-1 overflow-y-auto p-xl">{children}</main>
     </div>
   );
 }
