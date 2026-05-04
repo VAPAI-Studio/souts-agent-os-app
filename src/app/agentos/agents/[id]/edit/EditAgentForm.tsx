@@ -2,6 +2,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateAgent } from '../../_actions';
+import { FormField } from '@/components/ui/FormField';
+import { Input } from '@/components/ui/Input';
+import { Textarea } from '@/components/ui/Textarea';
+import { Select } from '@/components/ui/Select';
+import { Button } from '@/components/ui/Button';
 
 const DEPARTMENTS = [
   'CEO',
@@ -74,79 +79,86 @@ export function EditAgentForm({ agent }: { agent: AgentRow }) {
     router.push(`/agentos/agents/${agent.id}`);
   }
 
+  const hasError = !!error;
+
   return (
     <form
       onSubmit={handleSubmit}
       data-testid="edit-agent-form"
-      style={{ display: 'grid', gap: '1rem', maxWidth: 600 }}
+      className="flex flex-col gap-md max-w-[600px]"
     >
-      <label>
-        Name{' '}
-        <input
+      <FormField label="Name" htmlFor="name">
+        <Input
+          id="name"
           name="name"
           defaultValue={agent.name}
           required
           minLength={3}
           maxLength={50}
           data-testid="field-name"
+          error={hasError}
         />
-      </label>
-      <label>
-        Department
-        <select
+      </FormField>
+      <FormField label="Department" htmlFor="department">
+        <Select
+          id="department"
           name="department"
           defaultValue={agent.department}
           required
           data-testid="field-department"
+          error={hasError}
         >
           {DEPARTMENTS.map((d) => (
             <option key={d} value={d}>
               {d}
             </option>
           ))}
-        </select>
-      </label>
-      <label>
-        System prompt
-        <textarea
+        </Select>
+      </FormField>
+      <FormField label="System prompt" htmlFor="system_prompt">
+        <Textarea
+          id="system_prompt"
           name="system_prompt"
           rows={5}
           defaultValue={agent.system_prompt}
           required
           data-testid="field-system_prompt"
+          error={hasError}
         />
-      </label>
-      <label>
-        Autonomy
-        <select
+      </FormField>
+      <FormField label="Autonomy level" htmlFor="autonomy_level">
+        <Select
+          id="autonomy_level"
           name="autonomy_level"
           defaultValue={agent.autonomy_level}
           data-testid="field-autonomy_level"
+          error={hasError}
         >
           {AUTONOMY.map((a) => (
             <option key={a} value={a}>
               {a}
             </option>
           ))}
-        </select>
-      </label>
-      <label>
-        Model tier
-        <select
+        </Select>
+      </FormField>
+      <FormField label="Model tier" htmlFor="model_tier">
+        <Select
+          id="model_tier"
           name="model_tier"
           defaultValue={agent.model_tier}
           data-testid="field-model_tier"
+          error={hasError}
         >
           {MODELS.map((m) => (
             <option key={m} value={m}>
               {m}
             </option>
           ))}
-        </select>
-      </label>
-      <label>
-        max_turns{' '}
-        <input
+        </Select>
+      </FormField>
+      <FormField label="max_turns" htmlFor="max_turns">
+        <Input
+          id="max_turns"
           name="max_turns"
           type="number"
           min={1}
@@ -154,11 +166,12 @@ export function EditAgentForm({ agent }: { agent: AgentRow }) {
           defaultValue={agent.max_turns}
           required
           data-testid="field-max_turns"
+          error={hasError}
         />
-      </label>
-      <label>
-        Budget cap{' '}
-        <input
+      </FormField>
+      <FormField label="Budget cap (USD)" htmlFor="budget_cap_usd">
+        <Input
+          id="budget_cap_usd"
           name="budget_cap_usd"
           type="number"
           step="0.01"
@@ -166,32 +179,49 @@ export function EditAgentForm({ agent }: { agent: AgentRow }) {
           defaultValue={agent.budget_cap_usd ?? 0}
           required
           data-testid="field-budget_cap_usd"
+          error={hasError}
         />
-      </label>
-      <label>
-        Sensitive tools (csv){' '}
-        <input
+      </FormField>
+      <FormField
+        label="Sensitive tools"
+        htmlFor="sensitive_tools"
+        hint="Comma-separated, e.g. Bash,Python"
+      >
+        <Input
+          id="sensitive_tools"
           name="sensitive_tools"
           defaultValue={(agent.config?.sensitive_tools ?? []).join(', ')}
           data-testid="field-sensitive_tools"
+          error={hasError}
         />
-      </label>
-      <label>
-        Denylist globs (csv){' '}
-        <input
+      </FormField>
+      <FormField
+        label="Denylist globs"
+        htmlFor="denylist_globs"
+        hint="Comma-separated, e.g. **/.env,**/secrets/**"
+      >
+        <Input
+          id="denylist_globs"
           name="denylist_globs"
           defaultValue={(agent.config?.denylist_globs ?? []).join(', ')}
           data-testid="field-denylist_globs"
+          error={hasError}
         />
-      </label>
+      </FormField>
       {error && (
-        <p style={{ color: 'red' }} data-testid="form-error">
+        <p data-testid="form-error" className="text-destructive text-[13px]">
           {error}
         </p>
       )}
-      <button type="submit" disabled={submitting} data-testid="save-btn">
-        {submitting ? 'Saving...' : 'Save'}
-      </button>
+      <Button
+        type="submit"
+        intent="primary"
+        size="md"
+        disabled={submitting}
+        data-testid="submit-btn"
+      >
+        {submitting ? 'Saving...' : 'Save changes'}
+      </Button>
     </form>
   );
 }

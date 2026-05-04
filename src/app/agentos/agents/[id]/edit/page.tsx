@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { requireAdminOrOwner } from '@/lib/supabase/agentos';
 import { createClient } from '@/lib/supabase/server';
 import { EditAgentForm } from './EditAgentForm';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 export default async function EditAgentPage({
   params,
@@ -19,9 +20,11 @@ export default async function EditAgentPage({
   if (!agent) return notFound();
   await requireAdminOrOwner(`/agentos/agents/${id}/edit`, agent.owner_id);
 
+  const editingTitle = 'Edit: ' + agent.name;
+
   return (
-    <section>
-      <h1>Edit: {agent.name}</h1>
+    <section className="flex flex-col gap-lg">
+      <PageHeader title={editingTitle} />
       <EditAgentForm agent={agent} />
     </section>
   );
