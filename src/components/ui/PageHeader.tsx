@@ -2,7 +2,7 @@ import * as React from 'react';
 import { cn } from '@/lib/cn';
 
 export interface PageHeaderProps {
-  title: string;
+  title: React.ReactNode;
   actions?: React.ReactNode;
   className?: string;
   /** Optional sub-element rendered below the title (e.g., status badge) */

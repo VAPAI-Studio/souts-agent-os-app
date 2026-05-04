@@ -24,6 +24,7 @@ import {
   duplicateAgent,
   softDeleteAgent,
 } from '../_actions';
+import { Button } from '@/components/ui/Button';
 
 export interface AgentSummary {
   id: string;
@@ -41,13 +42,19 @@ export function AgentActions({ agent }: { agent: AgentSummary }) {
   return (
     <div
       data-testid="agent-actions"
-      style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}
+      className="flex items-center gap-sm flex-wrap"
     >
       {/* Plan 03-04: Trigger Run */}
-      <button
+      <Button
         data-testid="trigger-run-btn"
+        intent="primary"
+        size="sm"
         disabled={isPending || isPaused}
-        title={isPaused ? 'Agent is paused' : 'Trigger a run now'}
+        title={
+          isPaused
+            ? 'Agent is paused. Resume it before triggering a run.'
+            : 'Trigger a run now'
+        }
         onClick={() =>
           startTransition(async () => {
             setError(null);
@@ -60,13 +67,15 @@ export function AgentActions({ agent }: { agent: AgentSummary }) {
           })
         }
       >
-        Trigger run
-      </button>
+        {isPending ? '...' : 'Trigger run'}
+      </Button>
 
       {/* Plan 03-03: Pause / Resume */}
       {!isPaused ? (
-        <button
+        <Button
           data-testid="pause-btn"
+          intent="secondary"
+          size="sm"
           disabled={isPending}
           onClick={() =>
             startTransition(async () => {
@@ -77,10 +86,12 @@ export function AgentActions({ agent }: { agent: AgentSummary }) {
           }
         >
           Pause
-        </button>
+        </Button>
       ) : (
-        <button
+        <Button
           data-testid="resume-btn"
+          intent="secondary"
+          size="sm"
           disabled={isPending}
           onClick={() =>
             startTransition(async () => {
@@ -91,12 +102,14 @@ export function AgentActions({ agent }: { agent: AgentSummary }) {
           }
         >
           Resume
-        </button>
+        </Button>
       )}
 
       {/* Plan 03-03: Duplicate */}
-      <button
+      <Button
         data-testid="duplicate-btn"
+        intent="secondary"
+        size="sm"
         disabled={isPending}
         onClick={() =>
           startTransition(async () => {
@@ -111,14 +124,18 @@ export function AgentActions({ agent }: { agent: AgentSummary }) {
         }
       >
         Duplicate
-      </button>
+      </Button>
 
       {/* Plan 03-03: Soft delete */}
-      <button
+      <Button
         data-testid="delete-btn"
+        intent="destructive"
+        size="sm"
         disabled={isPending}
         onClick={() => {
-          if (!confirm(`Delete agent "${agent.name}"? Run history is preserved.`)) {
+          const deleteConfirmString =
+            'Delete agent "' + agent.name + '"? Run history is preserved.';
+          if (!confirm(deleteConfirmString)) {
             return;
           }
           startTransition(async () => {
@@ -133,10 +150,13 @@ export function AgentActions({ agent }: { agent: AgentSummary }) {
         }}
       >
         Delete
-      </button>
+      </Button>
 
       {error && (
-        <span style={{ color: 'red' }} data-testid="action-error">
+        <span
+          className="text-destructive text-[12px]"
+          data-testid="action-error"
+        >
           {error}
         </span>
       )}

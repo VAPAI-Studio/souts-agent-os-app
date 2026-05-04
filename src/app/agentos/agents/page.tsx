@@ -2,6 +2,10 @@ import Link from 'next/link';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { requireAgentosRole } from '@/lib/supabase/agentos';
 import { createClient } from '@/lib/supabase/server';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/Table';
 
 export default async function AgentsListPage() {
   const claims = await requireAgentosRole('/agentos/agents');
@@ -17,14 +21,6 @@ export default async function AgentsListPage() {
     )
     .is('deleted_at', null)
     .order('updated_at', { ascending: false });
-
-  if (error) {
-    return (
-      <p data-testid="agents-load-error">
-        Failed to load agents: {error.message}
-      </p>
-    );
-  }
 
   // Resolve owner emails (auth.users not in PostgREST; service-role lookup like team/page.tsx)
   const ownerIds = (agents ?? []).map((a) => a.owner_id);
@@ -45,85 +41,98 @@ export default async function AgentsListPage() {
   }
 
   return (
-    <section>
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1rem',
-          marginBottom: '1rem',
-        }}
-      >
-        <h1>Agents</h1>
-        {claims.app_role === 'admin' && (
-          <Link
-            href="/agentos/agents/new"
-            data-testid="new-agent-link"
-            style={{ marginLeft: 'auto' }}
-          >
-            + New agent
-          </Link>
-        )}
-      </header>
-
-      <table
-        data-testid="agents-table"
-        style={{ borderCollapse: 'collapse', width: '100%' }}
-      >
-        <thead>
-          <tr style={{ textAlign: 'left', borderBottom: '1px solid #ccc' }}>
-            <th style={{ padding: '0.5rem' }}>Name</th>
-            <th style={{ padding: '0.5rem' }}>Department</th>
-            <th style={{ padding: '0.5rem' }}>Status</th>
-            <th style={{ padding: '0.5rem' }}>Autonomy</th>
-            <th style={{ padding: '0.5rem' }}>Model</th>
-            <th style={{ padding: '0.5rem' }}>Owner</th>
-            <th style={{ padding: '0.5rem' }}>Updated</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(agents ?? []).map((a) => (
-            <tr
-              key={a.id}
-              data-testid={`agent-row-${a.id}`}
-              style={{ borderBottom: '1px solid #eee' }}
-            >
-              <td style={{ padding: '0.5rem' }}>
-                <Link href={`/agentos/agents/${a.id}`}>{a.name}</Link>
-              </td>
-              <td style={{ padding: '0.5rem' }}>{a.department}</td>
-              <td
-                style={{ padding: '0.5rem' }}
-                data-testid={`agent-status-${a.id}`}
-              >
-                {a.status}
-              </td>
-              <td style={{ padding: '0.5rem' }}>{a.autonomy_level}</td>
-              <td style={{ padding: '0.5rem' }}>{a.model_tier}</td>
-              <td style={{ padding: '0.5rem' }}>
-                {emailMap.get(a.owner_id) ?? a.owner_id}
-              </td>
-              <td style={{ padding: '0.5rem' }}>
-                {new Date(a.updated_at).toLocaleString()}
-              </td>
-            </tr>
-          ))}
-          {(agents ?? []).length === 0 && (
-            <tr>
-              <td
-                colSpan={7}
-                style={{
-                  padding: '1rem',
-                  textAlign: 'center',
-                  color: '#888',
-                }}
-              >
-                No agents yet.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+    <section className="flex flex-col gap-lg">
+      <PageHeader
+        title="Agents"
+        actions={
+          claims.app_role === 'admin' && (
+            <Button asChild intent="primary" size="sm">
+              <Link href="/agentos/agents/new" data-testid="new-agent-link">
+                New agent
+              </Link>
+            </Button>
+          )
+        }
+      />
+      {error ? (
+        <p data-testid="agents-load-error" className="text-destructive">
+          Failed to load agents: {error.message}. Refresh the page or check your connection.
+        </p>
+      ) : (
+        <Table data-testid="agents-table">
+          <THead>
+            <Tr>
+              <Th>Name</Th>
+              <Th>Department</Th>
+              <Th>Status</Th>
+              <Th>Autonomy</Th>
+              <Th>Model</Th>
+              <Th>Owner</Th>
+              <Th>Updated</Th>
+            </Tr>
+          </THead>
+          <TBody>
+            {(agents ?? []).map((a) => (
+              <Tr key={a.id} data-testid={`agent-row-${a.id}`}>
+                <Td>
+                  <Link
+                    href={`/agentos/agents/${a.id}`}
+                    className="text-accent hover:underline"
+                  >
+                    {a.name}
+                  </Link>
+                </Td>
+                <Td>{a.department}</Td>
+                <Td data-testid={`agent-status-${a.id}`}>
+                  <Badge tone={statusToTone(a.status)}>{a.status}</Badge>
+                </Td>
+                <Td>{a.autonomy_level}</Td>
+                <Td>{a.model_tier}</Td>
+                <Td>{emailMap.get(a.owner_id) ?? a.owner_id}</Td>
+                <Td>
+                  <span className="font-mono text-text-muted">
+                    {new Date(a.updated_at).toLocaleString()}
+                  </span>
+                </Td>
+              </Tr>
+            ))}
+            {(agents ?? []).length === 0 && (
+              <Tr>
+                <Td colSpan={7} className="text-center text-text-muted p-md">
+                  No agents yet.{' '}
+                  <Link
+                    href="/agentos/agents/new"
+                    className="text-accent hover:underline"
+                  >
+                    Create your first agent
+                  </Link>{' '}
+                  to get started.
+                </Td>
+              </Tr>
+            )}
+          </TBody>
+        </Table>
+      )}
     </section>
   );
+}
+
+type Tone = 'success' | 'warning' | 'destructive' | 'neutral';
+function statusToTone(status: string): Tone {
+  switch (status) {
+    case 'active':
+    case 'completed':
+      return 'success';
+    case 'paused':
+    case 'queued':
+    case 'dispatched':
+    case 'running':
+    case 'awaiting_approval':
+      return 'warning';
+    case 'failed':
+    case 'cancelled':
+      return 'destructive';
+    default:
+      return 'neutral';
+  }
 }
