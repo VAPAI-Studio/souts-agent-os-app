@@ -102,7 +102,7 @@ export default async function AgentsListPage() {
                   No agents yet.{' '}
                   <Link
                     href="/agentos/agents/new"
-                    className="text-accent hover:underline"
+                    className="text-accent underline underline-offset-2"
                   >
                     Create your first agent
                   </Link>{' '}

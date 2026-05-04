@@ -26,7 +26,10 @@ async function loginAs(page: Page, email: string, password: string) {
   await page.goto('/login');
   await page.fill('#email', email);
   await page.fill('#password', password);
-  await page.getByTestId('login-submit').click();
+  await Promise.all([
+    page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15000 }),
+    page.getByTestId('login-submit').click(),
+  ]);
 }
 
 test.describe('Phase 03.1 a11y baseline', () => {
