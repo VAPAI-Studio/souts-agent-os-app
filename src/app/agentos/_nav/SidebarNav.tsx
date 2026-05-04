@@ -17,15 +17,16 @@ interface NavItem {
 }
 
 /**
- * Nav items locked for Phase 03.1.
- * - 'Runs' currently routes to /agentos/agents as a placeholder until Plan 03-05
- *   ships /agentos/logs (per UI-SPEC Layout Shell § Nav items).
+ * Nav items locked for Phase 03.1 + extended in Plan 03-05.
+ * - 'Runs' still points at /agentos/agents (run-detail pages are nested under agents).
+ * - 'Logs' was added in Plan 03-05 once /agentos/logs shipped (filterable agent_runs).
  * - No "Coming soon" graveyards: only built routes appear here.
  */
 const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { label: 'Agents', href: '/agentos/agents', testId: 'nav-agents' },
   { label: 'Team', href: '/agentos/team', testId: 'nav-team', adminOnly: true },
   { label: 'Runs', href: '/agentos/agents', testId: 'nav-runs' }, // placeholder href
+  { label: 'Logs', href: '/agentos/logs', testId: 'nav-logs' },
 ];
 
 interface SidebarNavProps {
