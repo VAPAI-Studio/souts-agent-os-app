@@ -1,26 +1,104 @@
 @import "tailwindcss";
 
+/* ============================================================ */
+/* Light theme — declare RAW values in :root                    */
+/* (Tailwind v4 @theme inline references these; both are needed) */
+/* ============================================================ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Color — Light */
+  --color-surface: #ffffff;
+  --color-surface-raised: #f7f7f7;
+  --color-border: #e5e5e5;
+  --color-border-subtle: #f0f0f0;
+  --color-text: #111111;
+  --color-text-muted: #666666;
+  --color-text-placeholder: #999999;
+  --color-accent: #4f46e5;
+  --color-accent-fg: #ffffff;
+  --color-accent-subtle: #eef2ff;
+  --color-destructive: #dc2626;
+  --color-destructive-subtle: #fef2f2;
+  --color-success: #16a34a;
+  --color-success-subtle: #f0fdf4;
+  --color-warning: #d97706;
+  --color-warning-subtle: #fffbeb;
+
+  /* Spacing — multiples of 4 (UI-SPEC Spacing Scale) */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
 }
 
+/* ============================================================ */
+/* Dark theme overrides (UI-SPEC Color > Dark Theme)             */
+/* ============================================================ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-surface: #0a0a0a;
+    --color-surface-raised: #141414;
+    --color-border: #262626;
+    --color-border-subtle: #1a1a1a;
+    --color-text: #ededed;
+    --color-text-muted: #888888;
+    --color-text-placeholder: #555555;
+    --color-accent: #6366f1;
+    --color-accent-fg: #ffffff;
+    --color-accent-subtle: #1e1b4b;
+    --color-destructive: #ef4444;
+    --color-destructive-subtle: #450a0a;
+    --color-success: #22c55e;
+    --color-success-subtle: #052e16;
+    --color-warning: #f59e0b;
+    --color-warning-subtle: #451a03;
+  }
+}
+
+/* ============================================================ */
+/* Tailwind v4 token registration — generates utility classes    */
+/* bg-surface, text-text, border-border, p-md, font-mono, etc.   */
+/* ============================================================ */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* Color — re-export every var declared above */
+  --color-surface: var(--color-surface);
+  --color-surface-raised: var(--color-surface-raised);
+  --color-border: var(--color-border);
+  --color-border-subtle: var(--color-border-subtle);
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-placeholder: var(--color-text-placeholder);
+  --color-accent: var(--color-accent);
+  --color-accent-fg: var(--color-accent-fg);
+  --color-accent-subtle: var(--color-accent-subtle);
+  --color-destructive: var(--color-destructive);
+  --color-destructive-subtle: var(--color-destructive-subtle);
+  --color-success: var(--color-success);
+  --color-success-subtle: var(--color-success-subtle);
+  --color-warning: var(--color-warning);
+  --color-warning-subtle: var(--color-warning-subtle);
+
+  /* Spacing — generates p-xs, m-md, gap-lg, etc. */
+  --spacing-xs: var(--spacing-xs);
+  --spacing-sm: var(--spacing-sm);
+  --spacing-md: var(--spacing-md);
+  --spacing-lg: var(--spacing-lg);
+  --spacing-xl: var(--spacing-xl);
+  --spacing-2xl: var(--spacing-2xl);
+
+  /* Typography — wires Geist fonts loaded by next/font in layout.tsx */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ============================================================ */
+/* Body — Geist Sans 13px (UI-SPEC Typography)                   */
+/* ============================================================ */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
 }
