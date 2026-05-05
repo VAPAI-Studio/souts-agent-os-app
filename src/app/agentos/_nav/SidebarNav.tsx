@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/cn';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { PendingBadge } from '@/app/agentos/approvals/_components/PendingBadge';
 
 type AgentosRole = 'admin' | 'member' | 'agent_owner' | 'viewer';
 
@@ -25,6 +26,7 @@ interface NavItem {
 const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { label: 'Agents', href: '/agentos/agents', testId: 'nav-agents' },
   { label: 'Vault', href: '/agentos/vault', testId: 'nav-vault' },
+  { label: 'Approvals', href: '/agentos/approvals', testId: 'nav-approvals', adminOnly: true },
   { label: 'Projects', href: '/agentos/projects', testId: 'nav-projects' },
   { label: 'Team', href: '/agentos/team', testId: 'nav-team', adminOnly: true },
   { label: 'Runs', href: '/agentos/agents', testId: 'nav-runs' }, // placeholder href
@@ -82,7 +84,8 @@ export function SidebarNav({ email, role }: SidebarNavProps) {
                   : 'text-text-muted hover:text-text border-l-2 border-transparent',
               )}
             >
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.testId === 'nav-approvals' && <PendingBadge />}
             </Link>
           );
         })}
