@@ -40,9 +40,11 @@ export function ToolInputEditor({ tool_name, input, onChange }: ToolEditorProps)
   if (tool_name === 'mcp__slack__post_message' || tool_name === 'mcp__slack__post_thread') {
     return (
       <div className="flex flex-col gap-md" data-testid="tool-editor-slack">
-        <FormField label="Channel (read-only)"><Input value={String(draft.channel ?? '')} readOnly /></FormField>
-        <FormField label="Message">
-          <Textarea value={String(draft.text ?? '')} onChange={(e) => update('text', e.target.value)} rows={6} data-testid="edit-slack-text" />
+        <FormField label="Channel (read-only)" htmlFor="edit-slack-channel">
+          <Input id="edit-slack-channel" value={String(draft.channel ?? '')} readOnly />
+        </FormField>
+        <FormField label="Message" htmlFor="edit-slack-text">
+          <Textarea id="edit-slack-text" value={String(draft.text ?? '')} onChange={(e) => update('text', e.target.value)} rows={6} data-testid="edit-slack-text" />
         </FormField>
       </div>
     );
@@ -52,10 +54,14 @@ export function ToolInputEditor({ tool_name, input, onChange }: ToolEditorProps)
     const to = Array.isArray(draft.to) ? (draft.to as string[]).join(', ') : String(draft.to ?? '');
     return (
       <div className="flex flex-col gap-md" data-testid="tool-editor-gmail">
-        <FormField label="To (read-only)"><Input value={to} readOnly /></FormField>
-        <FormField label="Subject"><Input value={String(draft.subject ?? '')} onChange={(e) => update('subject', e.target.value)} data-testid="edit-gmail-subject" /></FormField>
-        <FormField label="Body">
-          <Textarea value={String(draft.body ?? '')} onChange={(e) => update('body', e.target.value)} rows={10} data-testid="edit-gmail-body" />
+        <FormField label="To (read-only)" htmlFor="edit-gmail-to">
+          <Input id="edit-gmail-to" value={to} readOnly />
+        </FormField>
+        <FormField label="Subject" htmlFor="edit-gmail-subject">
+          <Input id="edit-gmail-subject" value={String(draft.subject ?? '')} onChange={(e) => update('subject', e.target.value)} data-testid="edit-gmail-subject" />
+        </FormField>
+        <FormField label="Body" htmlFor="edit-gmail-body">
+          <Textarea id="edit-gmail-body" value={String(draft.body ?? '')} onChange={(e) => update('body', e.target.value)} rows={10} data-testid="edit-gmail-body" />
         </FormField>
       </div>
     );
@@ -69,9 +75,11 @@ export function ToolInputEditor({ tool_name, input, onChange }: ToolEditorProps)
     const target = String(draft.file_name ?? draft.page_id ?? draft.path ?? '');
     return (
       <div className="flex flex-col gap-md" data-testid="tool-editor-write">
-        <FormField label="Target (read-only)"><Input value={target} readOnly /></FormField>
-        <FormField label="Content">
-          <Textarea value={String(draft.content ?? '')} onChange={(e) => update('content', e.target.value)} rows={12} data-testid="edit-write-content" />
+        <FormField label="Target (read-only)" htmlFor="edit-write-target">
+          <Input id="edit-write-target" value={target} readOnly />
+        </FormField>
+        <FormField label="Content" htmlFor="edit-write-content">
+          <Textarea id="edit-write-content" value={String(draft.content ?? '')} onChange={(e) => update('content', e.target.value)} rows={12} data-testid="edit-write-content" />
         </FormField>
       </div>
     );
@@ -80,8 +88,12 @@ export function ToolInputEditor({ tool_name, input, onChange }: ToolEditorProps)
   if (tool_name === 'Bash') {
     return (
       <div className="flex flex-col gap-md" data-testid="tool-editor-bash">
-        <FormField label="Working dir (read-only)"><Input value={String(draft.cwd ?? '')} readOnly /></FormField>
-        <FormField label="Command"><Input value={String(draft.command ?? '')} onChange={(e) => update('command', e.target.value)} data-testid="edit-bash-command" /></FormField>
+        <FormField label="Working dir (read-only)" htmlFor="edit-bash-cwd">
+          <Input id="edit-bash-cwd" value={String(draft.cwd ?? '')} readOnly />
+        </FormField>
+        <FormField label="Command" htmlFor="edit-bash-command">
+          <Input id="edit-bash-command" value={String(draft.command ?? '')} onChange={(e) => update('command', e.target.value)} data-testid="edit-bash-command" />
+        </FormField>
       </div>
     );
   }

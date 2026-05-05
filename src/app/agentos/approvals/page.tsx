@@ -61,7 +61,7 @@ export default async function ApprovalsPage({
 
   return (
     <div className="flex flex-col gap-lg" data-testid="approvals-page">
-      <PageHeader title="Approvals" subtitle={`${initialRows.length} ${scope}`} />
+      <PageHeader title="Approvals" meta={<span className="text-[12px] text-text-muted">{initialRows.length} {scope}</span>} />
 
       <nav aria-label="Approvals scope" className="flex gap-sm border-b border-border">
         {(['pending', 'decided'] as Scope[]).map((s) => (

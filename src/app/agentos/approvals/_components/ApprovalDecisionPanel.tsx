@@ -69,8 +69,9 @@ export function ApprovalDecisionPanel({ approval_id, tool_name, tool_input }: Pr
             </div>
           )}
 
-          <FormField label="Reject reason (optional)">
+          <FormField label="Reject reason (optional)" htmlFor="reject-reason-input">
             <Input
+              id="reject-reason-input"
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="Why this should not run"

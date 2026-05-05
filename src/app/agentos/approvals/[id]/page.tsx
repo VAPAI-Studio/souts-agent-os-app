@@ -72,7 +72,7 @@ export default async function ApprovalDetailPage({
     <div className="flex flex-col gap-lg" data-testid={`approval-detail-${id}`}>
       <PageHeader
         title="Review approval"
-        subtitle={`${agent?.name ?? row.agent_id.slice(0, 8)} · ${row.tool_name}`}
+        meta={<span className="text-[12px] text-text-muted">{agent?.name ?? row.agent_id.slice(0, 8)} · {row.tool_name}</span>}
         actions={
           <Button asChild intent="ghost" size="sm">
             <Link href="/agentos/approvals">Back to inbox</Link>
