@@ -69,6 +69,36 @@ function validateCreate(input: CreateAgentInput): string | null {
 
 // -------- createAgent --------
 
+// Phase 6 / Plan 06-02: list of MCP tool names seeded into agent_tool_permissions
+// when a new agent is created. MUST stay in lockstep with
+// souts-agent-os-app/src/app/agentos/tools/_data/registry.ts ALL_REGISTERED_TOOLS.
+// (Server Actions cannot import from app code that pulls in non-action runtime
+// shapes without webpack module-resolution issues at the action runtime, so the
+// list is duplicated here. Polish-phase candidate to collapse.)
+const ALL_REGISTERED_TOOLS: string[] = [
+  'mcp__slack__list_channels',
+  'mcp__slack__get_channel_history',
+  'mcp__slack__search_messages',
+  'mcp__slack__post_message',
+  'mcp__slack__post_thread',
+  'mcp__slack__send_dm',
+  'mcp__slack__draft_dm',
+  'mcp__google_calendar__list_calendars',
+  'mcp__google_calendar__list_events',
+  'mcp__google_calendar__get_event',
+];
+
+function defaultLevelFromAutonomy(autonomy: AutonomyLevel): string {
+  // Maps Phase 5 autonomy_level (now seed-only per CONTEXT §8) to a Phase 6
+  // tool_permission_level for the seed rows. Operators can override per-tool
+  // via the Agent Edit Tools section.
+  if (autonomy === 'suggestive') return 'no_access';
+  if (autonomy === 'autonomous_with_approvals') return 'execute_autonomously';
+  // semi_autonomous + manual default to execute_with_approval — gate routes via
+  // approval_requests for any write tool the agent attempts.
+  return 'execute_with_approval';
+}
+
 export async function createAgent(input: CreateAgentInput) {
   const claims = await requireAdmin('/agentos/agents/new');
   const err = validateCreate(input);
@@ -108,6 +138,29 @@ export async function createAgent(input: CreateAgentInput) {
     before_value: null,
     after_value: insertPayload,
   });
+
+  // Phase 6 / Plan 06-02: seed agent_tool_permissions rows from autonomy_level.
+  // CONTEXT §8 demoted autonomy_level to seed-only — runtime gate now consults
+  // agent_tool_permissions exclusively. Failures are logged but never block the
+  // agent creation (the operator can manually set permissions via Edit Tools).
+  try {
+    const seedLevel = defaultLevelFromAutonomy(input.autonomy_level);
+    const seedRows = ALL_REGISTERED_TOOLS.map((toolName) => ({
+      agent_id: data!.id,
+      tool_name: toolName,
+      level: seedLevel,
+      set_by: claims.sub,
+    }));
+    const { error: seedError } = await sb
+      .schema('agentos')
+      .from('agent_tool_permissions')
+      .insert(seedRows);
+    if (seedError) {
+      console.warn('agent_tool_permissions seed failed:', seedError.message);
+    }
+  } catch (e) {
+    console.warn('agent_tool_permissions seed exception:', e);
+  }
 
   revalidatePath('/agentos/agents');
   return { ok: true as const, data: { id: data!.id as string } };
