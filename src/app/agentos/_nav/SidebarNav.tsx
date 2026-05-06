@@ -29,6 +29,8 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { label: 'Approvals', href: '/agentos/approvals', testId: 'nav-approvals', adminOnly: true },
   { label: 'Projects', href: '/agentos/projects', testId: 'nav-projects' },
   { label: 'Team', href: '/agentos/team', testId: 'nav-team', adminOnly: true },
+  // Plan 06-02: Tool Registry — admin-only catalog of integrations + per-tool defaults.
+  { label: 'Tools', href: '/agentos/tools', testId: 'nav-tools', adminOnly: true },
   { label: 'Runs', href: '/agentos/agents', testId: 'nav-runs' }, // placeholder href
   { label: 'Logs', href: '/agentos/logs', testId: 'nav-logs' },
 ];
