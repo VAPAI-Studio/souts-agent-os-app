@@ -5,6 +5,8 @@ import { EditAgentForm } from './EditAgentForm';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ToolPermissionsSection } from './_components/ToolPermissionsSection';
 import { ScheduleSection } from './_components/ScheduleSection';
+import { SlackChannelsSection } from './_components/SlackChannelsSection';
+import { CalendarSection } from './_components/CalendarSection';
 
 export default async function EditAgentPage({
   params,
@@ -32,6 +34,26 @@ export default async function EditAgentPage({
     .eq('agent_id', id);
   const initialPerms = (permsData ?? []) as { tool_name: string; level: string }[];
 
+  // Phase 6 / Plan 06-03: gate the Slack + Calendar sections on whether the
+  // corresponding tool_connections row exists with status='connected'. This
+  // avoids confusing admins with "select channels" when no Slack OAuth has
+  // happened (or "set calendar ID" when no Google OAuth has happened).
+  const { data: connections } = await supabase
+    .schema('agentos')
+    .from('tool_connections')
+    .select('integration')
+    .eq('status', 'connected');
+  const connectedIntegrations = new Set(
+    (connections ?? []).map((c) => c.integration),
+  );
+
+  const agentConfig = (agent.config ?? {}) as {
+    slack_channels?: string[];
+    calendar_id?: string | null;
+  };
+  const initialChannelIds = agentConfig.slack_channels ?? [];
+  const initialCalendarId = agentConfig.calendar_id ?? null;
+
   const editingTitle = 'Edit: ' + agent.name;
 
   return (
@@ -47,6 +69,18 @@ export default async function EditAgentPage({
           schedule_enabled: !!agent.schedule_enabled,
         }}
       />
+      {connectedIntegrations.has('slack') && (
+        <SlackChannelsSection
+          agentId={id}
+          initialChannelIds={initialChannelIds}
+        />
+      )}
+      {connectedIntegrations.has('google_calendar') && (
+        <CalendarSection
+          agentId={id}
+          initialCalendarId={initialCalendarId}
+        />
+      )}
     </section>
   );
 }

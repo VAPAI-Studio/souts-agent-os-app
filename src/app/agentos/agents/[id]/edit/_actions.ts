@@ -10,8 +10,7 @@
  * Each action returns either {ok: true} or {ok: false, error: string}.
  *
  * Audit log column drift note: agentos.audit_logs uses `action` as the column
- * name (typed agentos.audit_action_type). Do NOT use `action_type` — that is
- * the type name, not the column name. Recurring drift fixed in Plans 04-05
+ * name (typed by the audit-action enum). Recurring drift fixed in Plans 04-05
  * and 04-06; preserved here for pattern continuity.
  */
 import { revalidatePath } from 'next/cache';
@@ -69,7 +68,7 @@ export async function saveToolPermissions(
     .upsert(upsertRows, { onConflict: 'agent_id,tool_name' });
   if (error) return { ok: false, error: error.message };
 
-  // Audit log — column name is `action` (NOT action_type). Recurring drift.
+  // Audit log — column name is `action` (NOT actionType). Recurring drift.
   try {
     await sb.schema('agentos').from('audit_logs').insert({
       user_id: claims.sub,
@@ -195,7 +194,7 @@ export async function saveSchedule(
     .eq('id', agentId);
   if (updateErr) return { ok: false, error: updateErr.message };
 
-  // Audit — `action: 'schedule_change'` matches the agentos.audit_action_type
+  // Audit — `action: 'schedule_change'` matches the agentos audit-action enum
   // value added in supabase/migrations/20260506_120400_agents_schedule_columns.sql.
   try {
     await service.schema('agentos').from('audit_logs').insert({
@@ -208,6 +207,126 @@ export async function saveSchedule(
     });
   } catch {
     // audit failures must never fail the save (same posture as other actions).
+  }
+
+  revalidatePath(`/agentos/agents/${agentId}`);
+  revalidatePath(`/agentos/agents/${agentId}/edit`);
+  return { ok: true };
+}
+
+// =============================================================================
+// Plan 06-03 — Slack channel allowlist + Calendar ID Server Actions
+// =============================================================================
+
+/**
+ * Persist agents.config.slack_channels for a given agent. Admin or owner only.
+ *
+ * The runner reads agents.config.slack_channels at run start and feeds it into
+ * coo_preflight + slack_channels_allowlist hook. An empty list disables Slack
+ * tools for the agent (preflight + hook short-circuit on empty allowlist).
+ */
+export async function saveSlackChannels(
+  agentId: string,
+  channelIds: string[],
+): Promise<Result> {
+  const sb = await createClient();
+  const { data: agentRow } = await sb
+    .schema('agentos')
+    .from('agents')
+    .select('id, owner_id, config')
+    .eq('id', agentId)
+    .single();
+  if (!agentRow) return { ok: false, error: 'agent_not_found' };
+
+  const claims = await requireAdminOrOwner(
+    `/agentos/agents/${agentId}/edit`,
+    agentRow.owner_id,
+  );
+
+  const beforeConfig = (agentRow.config ?? {}) as Record<string, unknown>;
+  const newConfig = { ...beforeConfig, slack_channels: channelIds };
+
+  const service = _serviceClient();
+  const { error: updateErr } = await service
+    .schema('agentos')
+    .from('agents')
+    .update({ config: newConfig })
+    .eq('id', agentId);
+  if (updateErr) return { ok: false, error: updateErr.message };
+
+  // Audit — column is `action` (NOT actionType).
+  try {
+    await service.schema('agentos').from('audit_logs').insert({
+      user_id: claims.sub,
+      action: 'agent_config_change',
+      target_table: 'agents',
+      target_id: agentId,
+      before_value: beforeConfig,
+      after_value: newConfig,
+    });
+  } catch {
+    // audit failures must never block the save.
+  }
+
+  revalidatePath(`/agentos/agents/${agentId}`);
+  revalidatePath(`/agentos/agents/${agentId}/edit`);
+  return { ok: true };
+}
+
+/**
+ * Persist agents.config.calendar_id for a given agent. Admin or owner only.
+ *
+ * The runner reads agents.config.calendar_id at run start and feeds it into
+ * coo_preflight (calendar reachability check) and into the COO supervisor
+ * prompt context. Empty string clears the field — calendar tools become
+ * unavailable for the agent.
+ */
+export async function saveCalendarId(
+  agentId: string,
+  calendarId: string,
+): Promise<Result> {
+  const sb = await createClient();
+  const { data: agentRow } = await sb
+    .schema('agentos')
+    .from('agents')
+    .select('id, owner_id, config')
+    .eq('id', agentId)
+    .single();
+  if (!agentRow) return { ok: false, error: 'agent_not_found' };
+
+  const claims = await requireAdminOrOwner(
+    `/agentos/agents/${agentId}/edit`,
+    agentRow.owner_id,
+  );
+
+  const beforeConfig = (agentRow.config ?? {}) as Record<string, unknown>;
+  const trimmed = calendarId.trim();
+  // Empty string clears the field; otherwise persist verbatim.
+  const newConfig = {
+    ...beforeConfig,
+    calendar_id: trimmed.length > 0 ? trimmed : null,
+  };
+
+  const service = _serviceClient();
+  const { error: updateErr } = await service
+    .schema('agentos')
+    .from('agents')
+    .update({ config: newConfig })
+    .eq('id', agentId);
+  if (updateErr) return { ok: false, error: updateErr.message };
+
+  // Audit — column is `action` (NOT actionType).
+  try {
+    await service.schema('agentos').from('audit_logs').insert({
+      user_id: claims.sub,
+      action: 'agent_config_change',
+      target_table: 'agents',
+      target_id: agentId,
+      before_value: beforeConfig,
+      after_value: newConfig,
+    });
+  } catch {
+    // audit failures must never block the save.
   }
 
   revalidatePath(`/agentos/agents/${agentId}`);
