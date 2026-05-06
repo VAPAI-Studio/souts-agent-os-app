@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { EditAgentForm } from './EditAgentForm';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ToolPermissionsSection } from './_components/ToolPermissionsSection';
+import { ScheduleSection } from './_components/ScheduleSection';
 
 export default async function EditAgentPage({
   params,
@@ -38,6 +39,14 @@ export default async function EditAgentPage({
       <PageHeader title={editingTitle} />
       <EditAgentForm agent={agent} />
       <ToolPermissionsSection agentId={id} initialPerms={initialPerms} />
+      <ScheduleSection
+        agentId={id}
+        initial={{
+          schedule_cron: agent.schedule_cron ?? null,
+          schedule_timezone: agent.schedule_timezone ?? null,
+          schedule_enabled: !!agent.schedule_enabled,
+        }}
+      />
     </section>
   );
 }

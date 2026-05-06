@@ -1,7 +1,7 @@
 /**
  * Plan 06-03b: Vercel Cron handler for the generic per-agent scheduler.
  *
- * Schedule: every 5 minutes (vercel.json crons["*/5 * * * *"]).
+ * Schedule: every 5 minutes (vercel.json crons schedule).
  *
  * Vercel Cron sends an HTTP GET with `Authorization: Bearer ${CRON_SECRET}` (CRON_SECRET
  * env var must be set in the Vercel project). This route validates that bearer, then
