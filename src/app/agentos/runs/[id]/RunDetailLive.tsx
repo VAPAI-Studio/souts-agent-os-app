@@ -67,6 +67,7 @@ export function RunDetailLive(props: {
   initialRun: AgentRunRow;
   initialLogs: RunLogRow[];
   initialToolCalls: ToolCallRow[];
+  pendingDraftsCount?: number;
 }) {
   const run = useRunStatus(props.runId, props.initialRun);
   const logs = useRunLogs(props.runId, props.initialLogs);
@@ -80,6 +81,8 @@ export function RunDetailLive(props: {
   const isTerminal = ['completed', 'failed', 'cancelled'].includes(run.status);
   const canCancel = !isTerminal;
   const canRerun = run.status === 'failed';
+
+  const pendingDraftsCount = props.pendingDraftsCount ?? 0;
 
   return (
     <section className="flex flex-col gap-lg">
@@ -96,6 +99,16 @@ export function RunDetailLive(props: {
             className="text-accent underline text-[13px]"
           >
             ← {props.agent.name}
+          </Link>
+        )}
+        {pendingDraftsCount > 0 && (
+          <Link
+            href={`/agentos/runs/${props.runId}/drafts`}
+            className="no-underline"
+          >
+            <Badge tone="accent" data-testid="run-drafts-badge">
+              {pendingDraftsCount} drafts
+            </Badge>
           </Link>
         )}
         <div className="ml-auto flex items-center gap-sm">

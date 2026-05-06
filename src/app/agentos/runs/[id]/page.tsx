@@ -5,11 +5,50 @@
 // Plan 03.1-04 — page chrome (PageHeader) wrapper only; RunDetailLive untouched.
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { createServerClient } from '@supabase/ssr';
 import { requireAgentosRole } from '@/lib/supabase/agentos';
 import { createClient } from '@/lib/supabase/server';
 import { RunDetailLive } from './RunDetailLive';
 import { PageHeader } from '@/components/ui/PageHeader';
 import type { AgentRunRow, RunLogRow } from '@/lib/supabase/realtime';
+
+interface DraftMetaEntry {
+  discarded_at: string | null;
+  sent_at: string | null;
+}
+
+async function _countPendingDrafts(runId: string): Promise<number> {
+  // Service-role storage download — admin-or-member already gated above; this
+  // is a read-only metadata lookup. Sidecar absence => 0 drafts.
+  try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return [];
+          },
+          setAll() {
+            // service-role client never sets cookies
+          },
+        },
+      },
+    );
+    const { data: blob, error } = await supabase.storage
+      .from('vault')
+      .download(`drafts/${runId}/_meta.json`);
+    if (error || !blob) return 0;
+    const text = await blob.text();
+    const meta = JSON.parse(text) as { drafts?: Record<string, DraftMetaEntry> };
+    if (!meta.drafts) return 0;
+    return Object.values(meta.drafts).filter(
+      (d) => !d.discarded_at && !d.sent_at,
+    ).length;
+  } catch {
+    return 0;
+  }
+}
 
 interface AgentSummary {
   id: string;
@@ -71,6 +110,9 @@ export default async function RunDetailPage({
     .order('created_at', { ascending: true })
     .limit(200);
 
+  // Plan 06-02b: count pending drafts to render the run-drafts-badge.
+  const pendingDraftsCount = await _countPendingDrafts(id);
+
   const runTitle = 'Run ' + id.slice(0, 8);
   const agentHref = agent ? `/agentos/agents/${agent.id}` : '#';
   const agentMeta = agent && (
@@ -91,6 +133,7 @@ export default async function RunDetailPage({
         initialRun={run as unknown as AgentRunRow}
         initialLogs={(logs ?? []) as unknown as RunLogRow[]}
         initialToolCalls={(toolCalls ?? []) as unknown as ToolCallRow[]}
+        pendingDraftsCount={pendingDraftsCount}
       />
     </section>
   );

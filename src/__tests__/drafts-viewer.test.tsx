@@ -57,26 +57,30 @@ describe('DraftCard', () => {
   });
 });
 
-describe('drafts-page', () => {
-  // The page is a Server Component; we render it via a thin in-process call.
-  // We do NOT mock Supabase Storage here (that lands in the e2e suite); we
-  // only need the empty-state path to exercise the testids contract.
-  it('renders the drafts-page testid + empty-state when no drafts', async () => {
-    // Mock requireAdmin so the page does not redirect during test render.
-    vi.doMock('@/lib/supabase/agentos', () => ({
-      requireAdmin: vi.fn().mockResolvedValue({ sub: 'u1', app_role: 'admin' }),
-    }));
-    // Mock the supabase server client + storage download to return null (no drafts).
-    vi.doMock('@/lib/supabase/server', () => ({
-      createClient: vi.fn().mockResolvedValue({
-        storage: {
-          from: () => ({
-            download: () => Promise.resolve({ data: null, error: { message: 'not found' } }),
-          }),
-        },
-      }),
-    }));
+// Stub envs so createServerClient does not throw at module import / page call.
+// The page only calls supabase.storage.from(...).download(...) — we mock that next.
+process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 
+vi.mock('@/lib/supabase/agentos', () => ({
+  requireAdmin: vi.fn().mockResolvedValue({ sub: 'u1', app_role: 'admin' }),
+}));
+
+// Mock @supabase/ssr.createServerClient so the storage.download path resolves
+// to a missing-blob shape without making a real network call.
+vi.mock('@supabase/ssr', () => ({
+  createServerClient: () => ({
+    storage: {
+      from: () => ({
+        download: () =>
+          Promise.resolve({ data: null, error: { message: 'not found' } }),
+      }),
+    },
+  }),
+}));
+
+describe('drafts-page', () => {
+  it('renders the drafts-page testid + empty-state when no drafts', async () => {
     const mod = await import('@/app/agentos/runs/[id]/drafts/page');
     const PageDefault = mod.default;
     const ui = await PageDefault({ params: Promise.resolve({ id: 'run-abc' }) });
