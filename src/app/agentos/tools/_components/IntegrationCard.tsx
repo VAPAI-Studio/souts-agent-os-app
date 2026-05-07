@@ -27,10 +27,9 @@ function buildOAuthInitUrl(integrationKey: string): string {
   // a public env var; the redirect_uri is derived from window.location.origin.
   // Falls back to '#' when client_id is unset (development without OAuth).
   if (integrationKey === 'slack') {
-    const clientId = process.env.NEXT_PUBLIC_SLACK_CLIENT_ID;
-    if (!clientId) return '#';
-    const scopes = 'channels:read,channels:history,chat:write,im:write,users:read,search:read';
-    return `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${encodeURIComponent(scopes)}`;
+    // Goes through /api/oauth/slack/start so the CSRF state cookie is set
+    // before the redirect to Slack — the callback verifies cookie === state.
+    return '/api/oauth/slack/start';
   }
   if (integrationKey === 'google_calendar') {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
