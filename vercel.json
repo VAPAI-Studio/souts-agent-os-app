@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/scheduled-trigger",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 8 * * *"
     }
   ]
 }
