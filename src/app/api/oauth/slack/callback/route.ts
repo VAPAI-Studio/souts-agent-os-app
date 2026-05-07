@@ -1,16 +1,19 @@
 /**
- * Phase 6 / Plan 06-01: Slack OAuth callback Route Handler.
+ * Phase 6 / Plan 06-01: Slack OAuth callback Route Handler (USER-OAUTH for MCP).
  *
  * Flow (CONTEXT §4 + RESEARCH §1d):
- *   1. Slack redirects here with ?code= and ?state= after the user approves the bot install.
+ *   1. Slack redirects here with ?code= and ?state= after the user approves.
  *   2. Verify state cookie (CSRF protection — set during the redirect-to-Slack step).
- *   3. Exchange the code for an access_token via slack.com/api/oauth.v2.access.
+ *   3. Exchange the code for a USER access_token via slack.com/api/oauth.v2.user.access.
  *   4. Encrypt the access_token using the encryption helper (AES-256-GCM).
  *   5. Verify the calling user is admin (RLS enforces too, but Server-Action gate is defense in depth).
  *   6. UPSERT into agentos.tool_connections via service-role client.
  *   7. Write audit_logs row (action='tool_connection_create' — enum value added in the
  *      tool_connections migration).
  *   8. Redirect to /agentos/tools?connected=slack.
+ *
+ * Why user-OAuth: see start/route.ts header. The MCP server at mcp.slack.com requires
+ * a user token (xoxp-...). Bot tokens (xoxb-...) get rejected with 401 invalid_token.
  *
  * SECURITY: Uses service-role client for the DB write. The user-scoped client is used
  * only to authenticate the caller (admin check). Token is NEVER returned to the browser.
@@ -22,19 +25,27 @@ import { createClient as createServerClient } from "@supabase/supabase-js";
 import { encryptToken } from "@/lib/encryption";
 import { createClient } from "@/lib/supabase/server";
 
-interface SlackOAuthV2Response {
+// User-OAuth response shape per https://docs.slack.dev/reference/methods/oauth.v2.user.access/
+// The user access_token (xoxp-...) is returned at TOP LEVEL (token_type='user').
+// Note: this differs from oauth.v2.access (bot flow) where authed_user.access_token
+// holds the user token; here the top-level access_token IS the user token.
+interface SlackOAuthV2UserResponse {
   ok: boolean;
   error?: string;
-  access_token?: string;
-  bot_user_id?: string;
+  access_token?: string;       // xoxp-... user token
+  token_type?: string;         // "user"
+  scope?: string;              // granted user scopes (comma-separated)
+  authed_user?: {
+    id: string;                // user ID who authorized
+    scope?: string;
+  };
+  team?: { id: string; name?: string };
+  enterprise?: { id: string; name?: string } | null;
   app_id?: string;
-  team?: { id: string; name: string };
-  authed_user?: { id: string };
-  scope?: string;
-  token_type?: string;
 }
 
-const SLACK_OAUTH_TOKEN_URL = "https://slack.com/api/oauth.v2.access";
+// User-flow token endpoint (NOT oauth.v2.access — that's the bot flow).
+const SLACK_OAUTH_TOKEN_URL = "https://slack.com/api/oauth.v2.user.access";
 const STATE_COOKIE = "slack_oauth_state";
 
 export async function GET(request: Request): Promise<Response> {
@@ -80,7 +91,7 @@ export async function GET(request: Request): Promise<Response> {
   }
   const userId = userData.user.id;
 
-  // 3. Exchange code for access_token.
+  // 3. Exchange code for user access_token.
   const clientId = process.env.SLACK_CLIENT_ID;
   const clientSecret = process.env.SLACK_CLIENT_SECRET;
   const redirectUri = process.env.SLACK_REDIRECT_URI;
@@ -91,7 +102,7 @@ export async function GET(request: Request): Promise<Response> {
     );
   }
 
-  let tokenResp: SlackOAuthV2Response;
+  let tokenResp: SlackOAuthV2UserResponse;
   try {
     const formBody = new URLSearchParams({
       client_id: clientId,
@@ -104,7 +115,7 @@ export async function GET(request: Request): Promise<Response> {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: formBody.toString(),
     });
-    tokenResp = (await res.json()) as SlackOAuthV2Response;
+    tokenResp = (await res.json()) as SlackOAuthV2UserResponse;
   } catch (err) {
     return NextResponse.json(
       { error: "slack_token_exchange_failed", detail: String(err) },
@@ -116,6 +127,16 @@ export async function GET(request: Request): Promise<Response> {
     return NextResponse.json(
       { error: "slack_oauth_error", slack_error: tokenResp.error },
       { status: 400 },
+    );
+  }
+
+  // Sanity check: a user-flow access_token should be xoxp-* (user-scoped).
+  // Don't hard-fail (Slack may evolve token formats), but log a warning if
+  // the prefix is unexpected — operators can grep for this.
+  if (!tokenResp.access_token.startsWith("xoxp-")) {
+    console.warn(
+      "[slack-oauth-callback] unexpected access_token prefix; expected xoxp-, got %s...",
+      tokenResp.access_token.slice(0, 5),
     );
   }
 
@@ -137,7 +158,7 @@ export async function GET(request: Request): Promise<Response> {
 
   const teamId = tokenResp.team?.id ?? "";
   const teamName = tokenResp.team?.name ?? "";
-  const botUserId = tokenResp.bot_user_id ?? "";
+  const authedUserId = tokenResp.authed_user?.id ?? "";
 
   // Mark any existing 'connected' row for this integration as 'disconnected' to honor
   // the partial unique index. This preserves history (multiple disconnected rows allowed).
@@ -148,7 +169,9 @@ export async function GET(request: Request): Promise<Response> {
     .eq("integration", "slack")
     .eq("status", "connected");
 
-  // Insert fresh connected row.
+  // Insert fresh connected row. metadata.slack_user_id replaces bot_user_id from the
+  // bot-OAuth flow — the user-OAuth flow does not install a bot, so there is no
+  // bot_user_id. The runner posts messages AS THIS USER via the user token.
   const { data: connectionRow, error: insertErr } = await sb
     .schema("agentos")
     .from("tool_connections")
@@ -161,9 +184,10 @@ export async function GET(request: Request): Promise<Response> {
       metadata: {
         workspace: teamName,
         team_id: teamId,
-        bot_user_id: botUserId,
+        slack_user_id: authedUserId,
         access_token_ciphertext: accessTokenCiphertext,
         scope: tokenResp.scope ?? null,
+        token_type: tokenResp.token_type ?? "user",
       },
     })
     .select("id")
