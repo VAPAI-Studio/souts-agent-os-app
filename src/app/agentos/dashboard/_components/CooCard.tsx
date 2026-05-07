@@ -337,6 +337,16 @@ export function CooCard(props: CooCardProps) {
                     </Button>
                   </a>
                 )}
+                <Button
+                  intent="secondary"
+                  size="md"
+                  type="button"
+                  data-testid="coo-card-run-again-btn"
+                  disabled={isPending || !cooAgentId}
+                  onClick={onTriggerClick}
+                >
+                  {isPending ? '...' : 'Run again'}
+                </Button>
                 <Link
                   href={`/agentos/runs/${run.id}`}
                   data-testid="coo-card-run-link"
