@@ -13,8 +13,10 @@ function clipText(text: string, limit = PREVIEW_CHAR_LIMIT): { preview: string; 
 }
 
 function SlackPostPreview({ input }: { input: Record<string, unknown> }) {
-  const channel = String(input.channel ?? '');
-  const text = String(input.text ?? '');
+  // Phase 6.1: live MCP uses channel_id (not channel); canvas writes use markdown_body
+  // (not text). Read both for backwards compat with pre-Phase-6.1 approval rows.
+  const channel = String(input.channel_id ?? input.channel ?? '');
+  const text = String(input.text ?? input.markdown_body ?? '');
   const { preview, full_len } = clipText(text);
   return (
     <div className="flex flex-col gap-xs" data-testid="tool-input-slack">
@@ -88,8 +90,12 @@ export function ToolInputCard({ tool_name, input }: ToolInputProps) {
       <CardBody>
         {(() => {
           switch (tool_name) {
-            case 'mcp__slack__post_message':
-            case 'mcp__slack__post_thread':
+            // Phase 6.1: live Slack MCP write tool names (fixture-derived).
+            case 'mcp__slack__slack_send_message':
+            case 'mcp__slack__slack_send_message_draft':
+            case 'mcp__slack__slack_schedule_message':
+            case 'mcp__slack__slack_create_canvas':
+            case 'mcp__slack__slack_update_canvas':
               return <SlackPostPreview input={input} />;
             case 'mcp__gmail__send':
             case 'mcp__gmail__draft_send':

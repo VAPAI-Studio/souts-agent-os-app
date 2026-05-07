@@ -23,8 +23,8 @@ import { DraftCard } from '@/app/agentos/runs/[id]/drafts/_components/DraftCard'
 
 const SAMPLE_DRAFT = {
   draft_id: 'd-1234',
-  tool_name: 'mcp__slack__post_message',
-  tool_input: { channel: 'C0', text: 'hello world' },
+  tool_name: 'mcp__slack__slack_send_message',
+  tool_input: { channel_id: 'C0', text: 'hello world' },
   created_at: '2026-05-06T12:00:00+00:00',
   seq: 1,
   status: 'pending' as const,

@@ -7,8 +7,8 @@
  *
  * Asserted behavior (mirrors UI-SPEC §Surface 2 lines 184-220):
  *   - testid 'tools-section' exists
- *   - testid 'tool-permission-row-mcp__slack__post_message' exists
- *   - testid 'tool-permission-select-mcp__slack__post_message' exists
+ *   - testid 'tool-permission-row-mcp__slack__slack_send_message' exists
+ *   - testid 'tool-permission-select-mcp__slack__slack_send_message' exists
  *   - For tools in REQUIRES_APPROVAL, the Select hides "Execute autonomously"
  */
 import { describe, it, expect } from 'vitest';
@@ -25,10 +25,10 @@ describe('agent-edit-tools', () => {
     );
     expect(screen.getByTestId('tools-section')).toBeInTheDocument();
     expect(
-      screen.getByTestId('tool-permission-row-mcp__slack__post_message'),
+      screen.getByTestId('tool-permission-row-mcp__slack__slack_send_message'),
     ).toBeInTheDocument();
     const select = screen.getByTestId(
-      'tool-permission-select-mcp__slack__post_message',
+      'tool-permission-select-mcp__slack__slack_send_message',
     ) as HTMLSelectElement;
     expect(select).toBeInTheDocument();
     // REQUIRES_APPROVAL clamp: execute_autonomously must NOT be a selectable option.
@@ -44,7 +44,7 @@ describe('agent-edit-tools', () => {
       />,
     );
     const readSelect = screen.getByTestId(
-      'tool-permission-select-mcp__slack__list_channels',
+      'tool-permission-select-mcp__slack__slack_search_channels',
     ) as HTMLSelectElement;
     const options = Array.from(readSelect.options).map((o) => o.value);
     expect(options).toContain('execute_autonomously');

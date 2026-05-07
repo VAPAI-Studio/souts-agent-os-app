@@ -12,9 +12,18 @@ type ToolEditorProps = {
   onChange: (modified_input: Record<string, unknown>) => void;
 };
 
+// Phase 6.1 / Plan 06.1-02: Slack tool names refreshed to fixture-derived names.
+// slack_send_message handles thread replies via thread_ts param; the canvas
+// write tools share the same channel/text editor shape as send_message.
 const SUPPORTED_EDIT_TOOLS = new Set([
-  'mcp__slack__post_message',
-  'mcp__slack__post_thread',
+  // Slack writes (live MCP fixture)
+  'mcp__slack__slack_send_message',
+  'mcp__slack__slack_schedule_message',
+  'mcp__slack__slack_create_canvas',
+  'mcp__slack__slack_update_canvas',
+  // Slack draft
+  'mcp__slack__slack_send_message_draft',
+  // Phase 7 placeholders
   'mcp__gmail__send',
   'mcp__gmail__draft_send',
   'mcp__drive__write',
@@ -37,14 +46,30 @@ export function ToolInputEditor({ tool_name, input, onChange }: ToolEditorProps)
     onChange(next);
   };
 
-  if (tool_name === 'mcp__slack__post_message' || tool_name === 'mcp__slack__post_thread') {
+  // Phase 6.1: slack_send_message + slack_send_message_draft + slack_schedule_message
+  // share the channel/text editor shape (channel_id + text). Thread replies use the
+  // same shape with an extra thread_ts param. Canvas writes have a markdown_body field
+  // — also rendered as Channel + Body for now (operator can edit text content).
+  if (
+    tool_name === 'mcp__slack__slack_send_message' ||
+    tool_name === 'mcp__slack__slack_send_message_draft' ||
+    tool_name === 'mcp__slack__slack_schedule_message' ||
+    tool_name === 'mcp__slack__slack_create_canvas' ||
+    tool_name === 'mcp__slack__slack_update_canvas'
+  ) {
+    // The live MCP advertises `channel_id` (not `channel`) — read both for backwards
+    // compat with any pre-Phase-6.1 approval rows still in the queue.
+    const channelValue = String(draft.channel_id ?? draft.channel ?? '');
+    // Canvas tools use `markdown_body`; message tools use `text`.
+    const textValue = String(draft.text ?? draft.markdown_body ?? '');
+    const textKey = (draft.markdown_body !== undefined) ? 'markdown_body' : 'text';
     return (
       <div className="flex flex-col gap-md" data-testid="tool-editor-slack">
         <FormField label="Channel (read-only)" htmlFor="edit-slack-channel">
-          <Input id="edit-slack-channel" value={String(draft.channel ?? '')} readOnly />
+          <Input id="edit-slack-channel" value={channelValue} readOnly />
         </FormField>
         <FormField label="Message" htmlFor="edit-slack-text">
-          <Textarea id="edit-slack-text" value={String(draft.text ?? '')} onChange={(e) => update('text', e.target.value)} rows={6} data-testid="edit-slack-text" />
+          <Textarea id="edit-slack-text" value={textValue} onChange={(e) => update(textKey, e.target.value)} rows={6} data-testid="edit-slack-text" />
         </FormField>
       </div>
     );

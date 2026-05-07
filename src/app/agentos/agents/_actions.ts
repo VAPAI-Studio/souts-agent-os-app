@@ -75,14 +75,29 @@ function validateCreate(input: CreateAgentInput): string | null {
 // (Server Actions cannot import from app code that pulls in non-action runtime
 // shapes without webpack module-resolution issues at the action runtime, so the
 // list is duplicated here. Polish-phase candidate to collapse.)
+//
+// Phase 6.1 / Plan 06.1-02: Slack tool names refreshed to match the live MCP
+// fixture (souts-agent-os-modal/tests/fixtures/mcp_tool_names_slack.json,
+// captured 2026-05-07). Old names (post_message, list_channels, etc.) gone —
+// the live MCP server uses the redundant slack_-leaf-prefix convention.
 const ALL_REGISTERED_TOOLS: string[] = [
-  'mcp__slack__list_channels',
-  'mcp__slack__get_channel_history',
-  'mcp__slack__search_messages',
-  'mcp__slack__post_message',
-  'mcp__slack__post_thread',
-  'mcp__slack__send_dm',
-  'mcp__slack__draft_dm',
+  // Slack reads
+  'mcp__slack__slack_search_channels',
+  'mcp__slack__slack_search_public',
+  'mcp__slack__slack_search_public_and_private',
+  'mcp__slack__slack_search_users',
+  'mcp__slack__slack_read_channel',
+  'mcp__slack__slack_read_thread',
+  'mcp__slack__slack_read_canvas',
+  'mcp__slack__slack_read_user_profile',
+  // Slack writes (approval-gated)
+  'mcp__slack__slack_send_message',
+  'mcp__slack__slack_schedule_message',
+  'mcp__slack__slack_create_canvas',
+  'mcp__slack__slack_update_canvas',
+  // Slack draft (draft_only level)
+  'mcp__slack__slack_send_message_draft',
+  // Calendar
   'mcp__google_calendar__list_calendars',
   'mcp__google_calendar__list_events',
   'mcp__google_calendar__get_event',

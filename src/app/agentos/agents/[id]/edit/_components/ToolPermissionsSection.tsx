@@ -27,11 +27,18 @@ import { saveToolPermissions } from '../_actions';
 import { REGISTRY } from '@/app/agentos/tools/_data/registry';
 
 // REQUIRES_APPROVAL frozenset mirror — must stay in lockstep with
-// souts-agent-os-modal/hooks/approval.py REQUIRES_APPROVAL. When extending,
-// update both. Plan 05-05 finalized the 9-tool set; Plan 06-02 inherits.
+// souts-agent-os-modal/hooks/approval.py REQUIRES_APPROVAL.
+// Phase 6.1 / Plan 06.1-02: Slack writes refreshed to fixture-derived names
+// (souts-agent-os-modal/tests/fixtures/mcp_tool_names_slack.json write_tool_names).
+// Old hand-typed names (post_message, post_thread) caused Phase 6 Gap 2 silent
+// approval-gate bypass; sourcing from fixture-aware modal eliminates name drift.
 const REQUIRES_APPROVAL = new Set<string>([
-  'mcp__slack__post_message',
-  'mcp__slack__post_thread',
+  // Slack writes (Phase 6.1 fixture-derived)
+  'mcp__slack__slack_send_message',
+  'mcp__slack__slack_schedule_message',
+  'mcp__slack__slack_create_canvas',
+  'mcp__slack__slack_update_canvas',
+  // Phase 7 placeholders (gmail/drive/notion) — unchanged
   'mcp__gmail__send',
   'mcp__gmail__draft_send',
   'mcp__drive__write',
