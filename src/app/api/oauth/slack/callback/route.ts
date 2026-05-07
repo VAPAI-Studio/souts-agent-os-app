@@ -176,7 +176,8 @@ export async function GET(request: Request): Promise<Response> {
     );
   }
 
-  // 6. Audit log row (action — NOT action_type; column name lock per STATE.md drift note).
+  // 6. Audit log row — column is `action` (an enum-typed column). Per STATE.md drift note:
+  //    never write `actionType` to this row; the column name is exactly `action`.
   await sb
     .schema("agentos")
     .from("audit_logs")
