@@ -8,6 +8,7 @@ import { ScheduleSection } from './_components/ScheduleSection';
 import { SlackChannelsSection } from './_components/SlackChannelsSection';
 import { CalendarSection } from './_components/CalendarSection';
 import { GmailLabelsSection } from './_components/GmailLabelsSection';
+import { DriveSharedDrivesSection } from './_components/DriveSharedDrivesSection';
 
 export default async function EditAgentPage({
   params,
@@ -53,6 +54,7 @@ export default async function EditAgentPage({
     calendar_ids?: string[];
     calendar_id?: string | null;
     gmail_label_allowlist?: string[];
+    drive_shared_drive_ids?: string[];
   };
   const initialChannelIds = agentConfig.slack_channels ?? [];
   // Phase 7 / Plan 07-01: backward-compat read — prefer calendar_ids array (Phase 7)
@@ -62,6 +64,8 @@ export default async function EditAgentPage({
     (agentConfig.calendar_id ? [agentConfig.calendar_id] : []);
   // Phase 7 / Plan 07-02: Gmail label allowlist (string[]). Empty = inbox-implicit.
   const initialGmailLabels: string[] = agentConfig.gmail_label_allowlist ?? [];
+  // Phase 7 / Plan 07-03: Drive shared drive IDs — opaque strings from Drive URL.
+  const initialDriveIds: string[] = agentConfig.drive_shared_drive_ids ?? [];
 
   const editingTitle = 'Edit: ' + agent.name;
 
@@ -95,6 +99,13 @@ export default async function EditAgentPage({
         <GmailLabelsSection
           agentId={id}
           initialLabels={initialGmailLabels}
+        />
+      )}
+      {/* Phase 7 / Plan 07-03: Drive shared drive IDs — shown when Google Drive is connected. */}
+      {connectedIntegrations.has('google_drive') && (
+        <DriveSharedDrivesSection
+          agentId={id}
+          initialDriveIds={initialDriveIds}
         />
       )}
     </section>

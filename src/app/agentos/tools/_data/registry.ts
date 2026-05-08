@@ -98,7 +98,32 @@ export const REGISTRY: IntegrationDef[] = [
       { name: 'mcp__gmail__unlabel_thread',  description: 'Remove a label from a Gmail thread', type: 'read', defaultPermission: 'always_allowed' },
     ],
   },
-  { key: 'drive', label: 'Google Drive', placeholder: true, tools: [] },
+  {
+    key: 'google_drive',
+    label: 'Google Drive',
+    // Phase 7 / Plan 07-03: placeholder=false; Drive MCP tool surface.
+    // Key is 'google_drive' (LOAD-BEARING — matches runner.py mcp_servers_dict key and
+    // tool name prefix mcp__google_drive__*). Old key 'drive' is retired.
+    // Tool names from plan interfaces section (Wave 0 fixture skeleton; probe re-run will verify).
+    // permanently_delete excluded — in GLOBAL_DENYLIST_TOOLS (irrecoverable).
+    placeholder: false,
+    tools: [
+      // Read tools — always allowed (no shared-drive enforcement needed in registry;
+      //   the drive_allowlist PreToolUse hook handles My Drive block + shared-drive gate)
+      { name: 'mcp__google_drive__search_files',         description: 'Search for files in accessible shared drives',                  type: 'read',  defaultPermission: 'always_allowed' },
+      { name: 'mcp__google_drive__list_recent_files',    description: 'List recently modified files in accessible shared drives',       type: 'read',  defaultPermission: 'always_allowed' },
+      { name: 'mcp__google_drive__read_file_content',    description: 'Read the text content of a file',                               type: 'read',  defaultPermission: 'always_allowed' },
+      { name: 'mcp__google_drive__get_file_metadata',    description: 'Get metadata (name, type, modified date) of a file',            type: 'read',  defaultPermission: 'always_allowed' },
+      { name: 'mcp__google_drive__get_file_permissions', description: 'Get sharing permissions for a file',                            type: 'read',  defaultPermission: 'always_allowed' },
+      { name: 'mcp__google_drive__download_file_content',description: 'Download the binary content of a file',                         type: 'read',  defaultPermission: 'always_allowed' },
+      // Write tools — approval-gated
+      { name: 'mcp__google_drive__create_file',          description: 'Create a new file in a shared drive (approval-gated)',          type: 'write', defaultPermission: 'approval_gated' },
+      { name: 'mcp__google_drive__update_file',          description: 'Update the content or name of a file (approval-gated)',         type: 'write', defaultPermission: 'approval_gated' },
+      { name: 'mcp__google_drive__move_file',            description: 'Move a file to a different folder (approval-gated)',            type: 'write', defaultPermission: 'approval_gated' },
+      { name: 'mcp__google_drive__share_file',           description: 'Change the sharing permissions of a file (approval-gated)',     type: 'write', defaultPermission: 'approval_gated' },
+      { name: 'mcp__google_drive__trash_file',           description: 'Move a file to trash / soft-delete (approval-gated)',           type: 'write', defaultPermission: 'approval_gated' },
+    ],
+  },
   {
     key: 'notion',
     label: 'Notion',
