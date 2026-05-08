@@ -42,16 +42,12 @@ import { exchangeAuthCodeForToken } from "@/lib/google_oauth";
 import { createClient } from "@/lib/supabase/server";
 
 const STATE_COOKIE = "google_oauth_state";
-
-// Phase 6 read-only Calendar scopes — write scopes (events.write, calendars) are
-// deliberately deferred to Phase 7. If you change this list, update the comment in
-// google_oauth.ts AND the Slack-style admin install URL the user pastes in the
-// Plan 06-01b Task 4 checkpoint instructions.
-const PHASE_6_CALENDAR_SCOPES = [
-  "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
-  "https://www.googleapis.com/auth/calendar.events.freebusy",
-  "https://www.googleapis.com/auth/calendar.events.readonly",
-];
+// Phase 7 / Plan 07-01: integration cookie set by /api/oauth/google/start.
+// The start route writes google_oauth_integration = 'google_calendar' | 'gmail' | 'google_drive'.
+// The callback reads this cookie to know which integration row to upsert — replaces the
+// hardcoded 'google_calendar' literal from Phase 6. Cleared after use (single-use pattern).
+const INTEGRATION_COOKIE = "google_oauth_integration";
+const DEFAULT_INTEGRATION = "google_calendar";
 
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -84,6 +80,16 @@ export async function GET(request: Request): Promise<Response> {
   }
   // Clear the state cookie after use (single-use, defense-in-depth).
   cookieStore.delete(STATE_COOKIE);
+
+  // Phase 7 / Plan 07-01: read the integration cookie set by /api/oauth/google/start.
+  // Falls back to 'google_calendar' for Phase 6 installs that used the direct URL
+  // (before the start route existed).
+  const integrationCookie = cookieStore.get(INTEGRATION_COOKIE);
+  const integration = integrationCookie?.value ?? DEFAULT_INTEGRATION;
+  // Clear the integration cookie after reading (single-use, matches state cookie pattern).
+  if (integrationCookie?.value) {
+    cookieStore.delete(INTEGRATION_COOKIE);
+  }
 
   // 2. Authenticate the caller as admin BEFORE doing any external work.
   const userClient = await createClient();
@@ -171,8 +177,10 @@ export async function GET(request: Request): Promise<Response> {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // Mark any existing connected row for google_calendar as disconnected to honor the
+  // Mark any existing connected row for this integration as disconnected to honor the
   // partial unique index. Multiple disconnected rows allowed; single connected row enforced.
+  // Phase 7 / Plan 07-01: uses `integration` variable (dynamic) instead of hardcoded
+  // 'google_calendar' — same callback handles calendar / gmail / drive.
   await sb
     .schema("agentos")
     .from("tool_connections")
@@ -180,7 +188,7 @@ export async function GET(request: Request): Promise<Response> {
       status: "disconnected",
       disconnected_at: new Date().toISOString(),
     })
-    .eq("integration", "google_calendar")
+    .eq("integration", integration)
     .eq("status", "connected");
 
   // Insert fresh connected row.
@@ -188,7 +196,7 @@ export async function GET(request: Request): Promise<Response> {
     .schema("agentos")
     .from("tool_connections")
     .insert({
-      integration: "google_calendar",
+      integration: integration,
       connection_method: "anthropic_hosted",
       external_ref: null,
       status: "connected",
@@ -197,7 +205,7 @@ export async function GET(request: Request): Promise<Response> {
         access_token_ciphertext: accessTokenCiphertext,
         refresh_token_ciphertext: refreshTokenCiphertext,
         expires_at: expiresAt,
-        scopes: grantedScopes.length > 0 ? grantedScopes : PHASE_6_CALENDAR_SCOPES,
+        scopes: grantedScopes,
         token_type: tokenResp.token_type ?? "Bearer",
       },
     })
@@ -226,7 +234,7 @@ export async function GET(request: Request): Promise<Response> {
       target_id: connectionRow.id,
       before: null,
       after: {
-        integration: "google_calendar",
+        integration: integration,
         scopes: grantedScopes,
         expires_at: expiresAt,
       },
@@ -234,6 +242,6 @@ export async function GET(request: Request): Promise<Response> {
 
   // 7. Redirect to tools page with success flag.
   return NextResponse.redirect(
-    new URL(`/agentos/tools?connected=google_calendar`, url.origin),
+    new URL(`/agentos/tools?connected=${integration}`, url.origin),
   );
 }
