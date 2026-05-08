@@ -3,7 +3,7 @@
  *
  * Reads ?integration= query param to pick scope set:
  *   integration=google_calendar  → calendar full scope (read + write)
- *   integration=gmail            → gmail.readonly + gmail.send (Plan 07-02 reuses)
+ *   integration=gmail            → gmail.modify (read + drafts; Plan 07-02 Branch B — no send tool in hosted MCP)
  *   integration=google_drive     → drive scope (Plan 07-03 reuses)
  *
  * Sets google_oauth_state CSRF cookie + google_oauth_integration cookie, then
@@ -27,10 +27,7 @@ const GOOGLE_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 
 const SCOPES_BY_INTEGRATION: Record<string, string[]> = {
   google_calendar: ["https://www.googleapis.com/auth/calendar"],
-  gmail: [
-    "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/gmail.send",
-  ],
+  gmail: ["https://www.googleapis.com/auth/gmail.modify"],
   google_drive: ["https://www.googleapis.com/auth/drive"],
 };
 
