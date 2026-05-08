@@ -671,10 +671,21 @@ const ORCHESTRATOR_URL =
 /**
  * TASK-01: trigger a run for an agent. POSTs to orchestrator's /runs/dispatch.
  * Returns the new run_id so the client can navigate to /agentos/runs/{run_id}.
+ *
+ * Plan 08-05: extended with optional `options` argument to support:
+ *   - trigger_type: 'manual' | 'chat' | 'test_run' (defaults to 'manual')
+ *   - parent_thread_id: linked-list chat thread continuity (Pitfall 2 avoidance)
+ *
+ * All EXISTING callers of triggerRun(agentId, input) continue to work because
+ * `options` is optional and defaults to manual trigger with no parent_thread_id.
  */
 export async function triggerRun(
   agentId: string,
   input: Record<string, unknown> = {},
+  options: {
+    trigger_type?: 'manual' | 'chat' | 'test_run';
+    parent_thread_id?: string | null;
+  } = {},
 ) {
   const claims = await requireAgentosRole(`/agentos/agents/${agentId}`);
   const sb = await createClient();
@@ -685,17 +696,25 @@ export async function triggerRun(
     return { ok: false as const, error: 'no_session' };
   }
 
+  const triggerType = options.trigger_type ?? 'manual';
+
+  const dispatchBody: Record<string, unknown> = {
+    agent_id: agentId,
+    input,
+    trigger_type: triggerType,
+  };
+  // Include parent_thread_id only when explicitly provided (undefined = omit, null = clear)
+  if (options.parent_thread_id !== undefined) {
+    dispatchBody.parent_thread_id = options.parent_thread_id;
+  }
+
   const resp = await fetch(`${ORCHESTRATOR_URL}/runs/dispatch`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      agent_id: agentId,
-      input,
-      trigger_type: 'manual',
-    }),
+    body: JSON.stringify(dispatchBody),
   });
 
   if (!resp.ok) {
@@ -717,7 +736,7 @@ export async function triggerRun(
       target_table: 'agent_runs',
       target_id: runId,
       before_value: null,
-      after_value: { agent_id: agentId, input, trigger_type: 'manual' },
+      after_value: { agent_id: agentId, input, trigger_type: triggerType },
     });
   } catch {
     // swallow — audit failure should not break the trigger UX
