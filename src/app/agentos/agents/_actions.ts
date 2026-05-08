@@ -28,13 +28,13 @@ type AutonomyLevel =
   | 'autonomous_with_approvals';
 type ModelTier = 'haiku' | 'sonnet' | 'opus';
 type Department =
-  | 'CEO'
-  | 'COO'
-  | 'Marketing'
-  | 'Sales'
-  | 'Project'
-  | 'Creative'
-  | 'Production';
+  | 'ceo'
+  | 'coo'
+  | 'marketing'
+  | 'sales'
+  | 'project'
+  | 'creative'
+  | 'production';
 
 export interface CreateAgentInput {
   name: string;
