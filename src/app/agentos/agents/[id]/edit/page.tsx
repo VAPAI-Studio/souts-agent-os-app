@@ -73,7 +73,12 @@ export default async function EditAgentPage({
     <section className="flex flex-col gap-lg">
       <PageHeader title={editingTitle} />
       <EditAgentForm agent={agent} />
-      <ToolPermissionsSection agentId={id} initialPerms={initialPerms} />
+      <ToolPermissionsSection
+        agentId={id}
+        initialPerms={initialPerms}
+        requiredMcpServers={(agent.required_mcp_servers as string[] | null) ?? []}
+        canEdit
+      />
       <ScheduleSection
         agentId={id}
         initial={{

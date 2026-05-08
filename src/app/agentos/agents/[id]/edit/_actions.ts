@@ -82,6 +82,48 @@ export async function saveToolPermissions(
     // Audit failures must not block the save; swallow.
   }
 
+  // Phase 8 / Plan 08-04 Task 2: auto-derive required_mcp_servers from per-tool grants.
+  // Closes Phase 7.1 backlog item #3 — Edit page tool permission changes also auto-update
+  // required_mcp_servers.
+  // Logic: for any non-no_access permission on a `mcp__<server>__<tool>` tool, add
+  //        `<server>` to required_mcp_servers.
+  //        Preserve manual additions (notably 'slack_bot' for COO supervisor; not derivable
+  //        from per-tool grants).
+  try {
+    const { data: currentPerms } = await sb
+      .schema('agentos')
+      .from('agent_tool_permissions')
+      .select('tool_name, level')
+      .eq('agent_id', agentId);
+
+    const derivedServers = new Set<string>();
+    for (const perm of currentPerms ?? []) {
+      if (perm.level === 'no_access') continue;
+      const parts = ((perm.tool_name as string) ?? '').split('__');
+      if (parts.length >= 3 && parts[0] === 'mcp') derivedServers.add(parts[1]);
+    }
+
+    // Preserve manually-added 'slack_bot' (COO supervisor — not derivable from per-tool grants).
+    const { data: agentRowForMcp } = await sb
+      .schema('agentos')
+      .from('agents')
+      .select('required_mcp_servers')
+      .eq('id', agentId)
+      .maybeSingle();
+    const existingMcp = new Set<string>(
+      (agentRowForMcp?.required_mcp_servers as string[] | null) ?? [],
+    );
+    if (existingMcp.has('slack_bot')) derivedServers.add('slack_bot');
+
+    await sb
+      .schema('agentos')
+      .from('agents')
+      .update({ required_mcp_servers: [...derivedServers] })
+      .eq('id', agentId);
+  } catch {
+    // Auto-derive failures must not block the save; swallow and continue.
+  }
+
   revalidatePath(`/agentos/agents/${agentId}/edit`);
   revalidatePath(`/agentos/agents/${agentId}`);
   return { ok: true };
@@ -470,6 +512,79 @@ export async function saveGmailLabels(
       target_id: agentId,
       before_value: beforeConfig,
       after_value: newConfig,
+    });
+  } catch {
+    // audit failures must never block the save.
+  }
+
+  revalidatePath(`/agentos/agents/${agentId}`);
+  revalidatePath(`/agentos/agents/${agentId}/edit`);
+  return { ok: true };
+}
+
+// =============================================================================
+// Phase 8 / Plan 08-04 — Required MCP Servers Server Action
+// =============================================================================
+
+/**
+ * Persist agents.required_mcp_servers for a given agent. Admin or owner only.
+ *
+ * Closes Phase 7.1 backlog item #3: Edit page had no UI to expose required_mcp_servers.
+ *
+ * Validates against a locked list of known server keys. Only allows keys that
+ * runner.py recognises (from mcp_servers_dict). Unknown keys are rejected to
+ * prevent misconfiguration that would silently fail at runtime.
+ */
+export async function saveRequiredMcpServers(
+  agentId: string,
+  servers: string[],
+): Promise<Result> {
+  // Validate input — only allow known server keys (matches runner.py mcp_servers_dict).
+  const KNOWN = new Set([
+    'slack',
+    'slack_bot',
+    'google_calendar',
+    'gmail',
+    'google_drive',
+    'notion',
+  ]);
+  const invalid = servers.filter((s) => !KNOWN.has(s));
+  if (invalid.length > 0) {
+    return { ok: false, error: `unknown_server_keys: ${invalid.join(', ')}` };
+  }
+
+  const sb = await createClient();
+  const { data: agentRow, error: fetchErr } = await sb
+    .schema('agentos')
+    .from('agents')
+    .select('id, owner_id, required_mcp_servers')
+    .eq('id', agentId)
+    .maybeSingle();
+  if (fetchErr || !agentRow) return { ok: false, error: 'agent_not_found' };
+
+  const claims = await requireAdminOrOwner(
+    `/agentos/agents/${agentId}/edit`,
+    agentRow.owner_id,
+  );
+
+  const before = (agentRow.required_mcp_servers as string[] | null) ?? [];
+
+  const { error: upErr } = await sb
+    .schema('agentos')
+    .from('agents')
+    .update({ required_mcp_servers: servers })
+    .eq('id', agentId);
+  if (upErr) return { ok: false, error: upErr.message };
+
+  // Audit — column is `action` (NOT actionType). Recurring drift fix.
+  try {
+    await sb.schema('agentos').from('audit_logs').insert({
+      user_id: claims.sub,
+      action: 'agent_config_change',
+      target_table: 'agents',
+      target_id: agentId,
+      before_value: { required_mcp_servers: before },
+      after_value: { required_mcp_servers: servers },
     });
   } catch {
     // audit failures must never block the save.

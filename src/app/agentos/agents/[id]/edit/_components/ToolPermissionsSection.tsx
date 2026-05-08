@@ -25,27 +25,44 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { saveToolPermissions } from '../_actions';
 import { REGISTRY } from '@/app/agentos/tools/_data/registry';
+import { RequiredMcpServersSection } from './RequiredMcpServersSection';
 
 // REQUIRES_APPROVAL frozenset mirror — must stay in lockstep with
 // souts-agent-os-modal/hooks/approval.py REQUIRES_APPROVAL.
-// Phase 6.1 / Plan 06.1-02: Slack writes refreshed to fixture-derived names
-// (souts-agent-os-modal/tests/fixtures/mcp_tool_names_slack.json write_tool_names).
-// Old hand-typed names (post_message, post_thread) caused Phase 6 Gap 2 silent
-// approval-gate bypass; sourcing from fixture-aware modal eliminates name drift.
+//
+// Phase 6.1 / Plan 06.1-02: Slack writes sourced from fixture
+//   (souts-agent-os-modal/tests/fixtures/mcp_tool_names_slack.json write_tool_names).
+// Phase 8 / Plan 08-04: Fixed drift from prior Phase-7 placeholder names.
+//   Drive: mcp__drive__write / mcp__drive__edit replaced with real fixture names.
+//   Notion: mcp__notion__create_page etc. replaced with real kebab-case fixture names.
+//   Calendar: mcp__google_calendar__create_event / update_event added (were missing).
+//   Gmail: mcp__gmail__send / mcp__gmail__draft_send REMOVED (not in Python frozenset).
 const REQUIRES_APPROVAL = new Set<string>([
-  // Slack writes (Phase 6.1 fixture-derived)
+  // Slack writes (Phase 6.1 fixture-derived from mcp_tool_names_slack.json)
   'mcp__slack__slack_send_message',
   'mcp__slack__slack_schedule_message',
   'mcp__slack__slack_create_canvas',
   'mcp__slack__slack_update_canvas',
-  // Phase 7 placeholders (gmail/drive/notion) — unchanged
-  'mcp__gmail__send',
-  'mcp__gmail__draft_send',
-  'mcp__drive__write',
-  'mcp__drive__edit',
-  'mcp__notion__create_page',
-  'mcp__notion__update_page',
-  'mcp__notion__update_database',
+  // Google Calendar write tools (Phase 7 / Plan 07-01)
+  'mcp__google_calendar__create_event',
+  'mcp__google_calendar__update_event',
+  // Google Drive write tools (Phase 7 / Plan 07-03 — fixture mcp_tool_names_drive.json)
+  'mcp__google_drive__create_file',
+  'mcp__google_drive__update_file',
+  'mcp__google_drive__move_file',
+  'mcp__google_drive__share_file',
+  'mcp__google_drive__trash_file',
+  // Notion write tools (Phase 7 / Plan 07-04 — fixture mcp_tool_names_notion.json; kebab-case)
+  'mcp__notion__notion-create-pages',
+  'mcp__notion__notion-update-page',
+  'mcp__notion__notion-move-pages',
+  'mcp__notion__notion-duplicate-page',
+  'mcp__notion__notion-create-database',
+  'mcp__notion__notion-update-data-source',
+  'mcp__notion__notion-create-view',
+  'mcp__notion__notion-update-view',
+  'mcp__notion__notion-create-comment',
+  'mcp__notion__notion-append-blocks',
 ]);
 
 const PERMISSION_LEVELS = [
@@ -64,11 +81,17 @@ interface PermissionRow {
 interface ToolPermissionsSectionProps {
   agentId: string;
   initialPerms: PermissionRow[];
+  /** Phase 8 / Plan 08-04: current required_mcp_servers for the RequiredMcpServersSection */
+  requiredMcpServers?: string[];
+  /** Whether the current user can edit permissions (owner or admin). Defaults to true. */
+  canEdit?: boolean;
 }
 
 export function ToolPermissionsSection({
   agentId,
   initialPerms,
+  requiredMcpServers = [],
+  canEdit = true,
 }: ToolPermissionsSectionProps) {
   const initialMap = Object.fromEntries(
     initialPerms.map((p) => [p.tool_name, p.level]),
@@ -228,6 +251,13 @@ export function ToolPermissionsSection({
           {isPending ? 'Saving…' : 'Save tool permissions'}
         </Button>
       </div>
+
+      {/* Phase 8 / Plan 08-04: Required MCP Servers UI (closes Phase 7.1 backlog item #3) */}
+      <RequiredMcpServersSection
+        agentId={agentId}
+        initial={requiredMcpServers}
+        canEdit={canEdit}
+      />
     </section>
   );
 }
