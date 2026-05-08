@@ -9,14 +9,23 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 
 const DEPARTMENTS = [
-  'CEO',
-  'COO',
-  'Marketing',
-  'Sales',
-  'Project',
-  'Creative',
-  'Production',
+  'ceo',
+  'coo',
+  'marketing',
+  'sales',
+  'project',
+  'creative',
+  'production',
 ] as const;
+const DEPARTMENT_LABELS: Record<(typeof DEPARTMENTS)[number], string> = {
+  ceo: 'CEO',
+  coo: 'COO',
+  marketing: 'Marketing',
+  sales: 'Sales',
+  project: 'Project',
+  creative: 'Creative',
+  production: 'Production',
+};
 const AUTONOMY = [
   'manual',
   'suggestive',
@@ -110,7 +119,7 @@ export function EditAgentForm({ agent }: { agent: AgentRow }) {
         >
           {DEPARTMENTS.map((d) => (
             <option key={d} value={d}>
-              {d}
+              {DEPARTMENT_LABELS[d]}
             </option>
           ))}
         </Select>
