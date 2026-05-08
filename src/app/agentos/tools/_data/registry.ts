@@ -60,10 +60,17 @@ export const REGISTRY: IntegrationDef[] = [
     key: 'google_calendar',
     label: 'Google Calendar',
     placeholder: false,
+    // Phase 7 / Plan 07-01: expanded from Phase 6 read-only 3-tool set to full 7-tool surface.
+    // Tool names sourced from plan interfaces section (Wave 0 fixture + CONTEXT.md contract).
+    // delete_event is excluded — it is in GLOBAL_DENYLIST_TOOLS (irrecoverable, unconditional deny).
+    // respond_to_event is excluded per CONTEXT.md (out of scope for Phase 7).
     tools: [
       { name: 'mcp__google_calendar__list_calendars', description: 'List accessible calendars', type: 'read', defaultPermission: 'always_allowed' },
       { name: 'mcp__google_calendar__list_events', description: 'List events from a calendar', type: 'read', defaultPermission: 'always_allowed' },
       { name: 'mcp__google_calendar__get_event', description: 'Get a specific event by ID', type: 'read', defaultPermission: 'always_allowed' },
+      { name: 'mcp__google_calendar__suggest_time', description: 'Suggest available meeting times', type: 'read', defaultPermission: 'always_allowed' },
+      { name: 'mcp__google_calendar__create_event', description: 'Create a calendar event (approval-gated)', type: 'write', defaultPermission: 'approval_gated' },
+      { name: 'mcp__google_calendar__update_event', description: 'Update a calendar event (approval-gated)', type: 'write', defaultPermission: 'approval_gated' },
     ],
   },
   { key: 'gmail', label: 'Gmail', placeholder: true, tools: [] },

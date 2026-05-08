@@ -49,10 +49,15 @@ export default async function EditAgentPage({
 
   const agentConfig = (agent.config ?? {}) as {
     slack_channels?: string[];
+    calendar_ids?: string[];
     calendar_id?: string | null;
   };
   const initialChannelIds = agentConfig.slack_channels ?? [];
-  const initialCalendarId = agentConfig.calendar_id ?? null;
+  // Phase 7 / Plan 07-01: backward-compat read — prefer calendar_ids array (Phase 7)
+  // else fall back to singular calendar_id (Phase 6) wrapped in array.
+  const initialCalendarIds: string[] =
+    agentConfig.calendar_ids ??
+    (agentConfig.calendar_id ? [agentConfig.calendar_id] : []);
 
   const editingTitle = 'Edit: ' + agent.name;
 
@@ -78,7 +83,7 @@ export default async function EditAgentPage({
       {connectedIntegrations.has('google_calendar') && (
         <CalendarSection
           agentId={id}
-          initialCalendarId={initialCalendarId}
+          initialCalendarIds={initialCalendarIds}
         />
       )}
     </section>

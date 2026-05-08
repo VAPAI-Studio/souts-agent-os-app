@@ -276,14 +276,32 @@ export async function saveSlackChannels(
 /**
  * Persist agents.config.calendar_id for a given agent. Admin or owner only.
  *
- * The runner reads agents.config.calendar_id at run start and feeds it into
- * coo_preflight (calendar reachability check) and into the COO supervisor
- * prompt context. Empty string clears the field — calendar tools become
- * unavailable for the agent.
+ * Phase 6 legacy — singular calendar_id. Kept for backward compat with any callers
+ * that haven't been updated to saveCalendarIds. Phase 7 UI uses saveCalendarIds instead.
  */
 export async function saveCalendarId(
   agentId: string,
   calendarId: string,
+): Promise<Result> {
+  return saveCalendarIds(agentId, calendarId ? [calendarId] : []);
+}
+
+/**
+ * Phase 7 / Plan 07-01 — Persist agents.config.calendar_ids for a given agent.
+ *
+ * Writes the full array to agents.config.calendar_ids (jsonb array). Also writes
+ * the singular calendar_id field for backward-compat (first ID if present, else null),
+ * so Phase 6 runner.py callers that read config.calendar_id still work until they
+ * are updated to read config.calendar_ids.
+ *
+ * The runner reads agents.config.calendar_ids at run start and builds the
+ * calendar_ids_allowlist for the calendar_allowlist PreToolUse hook.
+ * Empty array disables calendar ID enforcement (all calendar tools requiring an ID
+ * will be denied with missing_calendar_id).
+ */
+export async function saveCalendarIds(
+  agentId: string,
+  calendarIds: string[],
 ): Promise<Result> {
   const sb = await createClient();
   const { data: agentRow } = await sb
@@ -300,11 +318,14 @@ export async function saveCalendarId(
   );
 
   const beforeConfig = (agentRow.config ?? {}) as Record<string, unknown>;
-  const trimmed = calendarId.trim();
-  // Empty string clears the field; otherwise persist verbatim.
-  const newConfig = {
+  // Sanitize: trim and deduplicate IDs.
+  const sanitized = [...new Set(calendarIds.map((id) => id.trim()).filter(Boolean))];
+  const newConfig: Record<string, unknown> = {
     ...beforeConfig,
-    calendar_id: trimmed.length > 0 ? trimmed : null,
+    // Phase 7: primary field — array of calendar IDs.
+    calendar_ids: sanitized,
+    // Phase 6 backward-compat: singular calendar_id = first entry (or null).
+    calendar_id: sanitized.length > 0 ? sanitized[0] : null,
   };
 
   const service = _serviceClient();
