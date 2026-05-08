@@ -18,3 +18,12 @@
  */
 export { createAgent } from '../_actions';
 // agent_tool_permissions seed list source-of-truth comment — see ALL_REGISTERED_TOOLS in ../_actions.ts
+
+// Plan 08-02: draft management actions for the 8-step wizard
+export {
+  createDraft,
+  patchDraft,
+  activateDraft,
+  discardDraft,
+  createDraftFromTemplate,
+} from '../_actions';

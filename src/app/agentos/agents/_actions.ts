@@ -417,6 +417,242 @@ export async function softDeleteAgent(agentId: string) {
 }
 
 // =============================================================================
+// Plan 08-02 — Draft management Server Actions
+// =============================================================================
+//
+// Five actions for the 8-step wizard draft lifecycle:
+//   createDraft        — inserts is_draft=true agent row
+//   patchDraft         — patches any subset of wizard fields
+//   activateDraft      — validates + flips is_draft=false
+//   discardDraft       — soft-deletes the draft row
+//   createDraftFromTemplate — pre-fills from a seeded JSON template
+//
+// Audit log column name is `action` (NOT `action_type`) and `user_id` (NOT `actor_id`).
+// Enum values `agent_draft_create`, `agent_draft_activate`, `agent_draft_discard`
+// were added to agentos.audit_action_type in Plan 08-01 migration (pending apply).
+
+import cooTemplate from './new/templates/coo-daily-report.json';
+import contentDrafterTemplate from './new/templates/content-drafter.json';
+import taskSummarizerTemplate from './new/templates/task-summarizer.json';
+
+type TemplateSlug = 'coo-daily-report' | 'content-drafter' | 'task-summarizer';
+
+interface DraftPatch {
+  name?: string;
+  department?: Department;
+  system_prompt?: string;
+  autonomy_level?: AutonomyLevel;
+  model_tier?: ModelTier;
+  max_turns?: number;
+  budget_cap_usd?: number;
+  sensitive_tools?: string[];
+  denylist_globs?: string[];
+  required_mcp_servers?: string[];
+  schedule_cron?: string;
+  schedule_timezone?: string;
+  schedule_enabled?: boolean;
+  config?: Record<string, unknown>;
+}
+
+export async function createDraft(input: {
+  name: string;
+  department: Department;
+}): Promise<{ ok: true; data: { id: string } } | { ok: false; error: string }> {
+  if (!input.name?.trim()) return { ok: false, error: 'name_required' };
+  if (input.name.length > 100) return { ok: false, error: 'name_too_long' };
+  if (!input.department) return { ok: false, error: 'department_required' };
+  const claims = await requireAdmin('/agentos/agents/new');
+  const sb = await createClient();
+  const { data, error } = await sb
+    .schema('agentos')
+    .from('agents')
+    .insert({
+      owner_id: claims.sub,
+      name: input.name.trim(),
+      department: input.department,
+      system_prompt: '',
+      autonomy_level: 'semi_autonomous' as AutonomyLevel,
+      model_tier: 'sonnet' as ModelTier,
+      max_turns: 25,
+      budget_cap_usd: 1.0,
+      status: 'active',
+      is_draft: true,
+      config: {},
+    })
+    .select('id')
+    .single();
+  if (error) return { ok: false, error: error.message };
+  await sb.schema('agentos').from('audit_logs').insert({
+    user_id: claims.sub,
+    action: 'agent_draft_create',
+    target_table: 'agents',
+    target_id: data!.id,
+    before_value: null,
+    after_value: { name: input.name, department: input.department, is_draft: true },
+  });
+  return { ok: true, data: { id: data!.id as string } };
+}
+
+export async function patchDraft(
+  draftId: string,
+  patch: Partial<DraftPatch>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (typeof patch.max_turns === 'number' && (patch.max_turns < 1 || patch.max_turns > 100)) {
+    return { ok: false, error: 'max_turns must be 1-100' };
+  }
+  if (typeof patch.budget_cap_usd === 'number' && patch.budget_cap_usd <= 0) {
+    return { ok: false, error: 'budget_cap_usd must be > 0' };
+  }
+  const claims = await requireAdmin('/agentos/agents/new');
+  const sb = await createClient();
+  // Build a typed update object from the patch keys
+  const update: Record<string, unknown> = {};
+  const patchableFields = [
+    'name', 'department', 'system_prompt', 'autonomy_level', 'model_tier',
+    'max_turns', 'budget_cap_usd', 'sensitive_tools', 'denylist_globs',
+    'required_mcp_servers', 'schedule_cron', 'schedule_timezone',
+    'schedule_enabled', 'config',
+  ] as const;
+  for (const key of patchableFields) {
+    if (key in patch && patch[key] !== undefined) {
+      update[key] = patch[key];
+    }
+  }
+  const { data: updated, error } = await sb
+    .schema('agentos')
+    .from('agents')
+    .update(update)
+    .eq('id', draftId)
+    .eq('is_draft', true)
+    .is('deleted_at', null)
+    .select('id')
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!updated) return { ok: false, error: 'draft_not_found' };
+  void claims; // used for auth gate above
+  return { ok: true };
+}
+
+export async function activateDraft(
+  draftId: string,
+): Promise<{ ok: true; data: { id: string } } | { ok: false; error: string }> {
+  const claims = await requireAdmin('/agentos/agents/new');
+  const sb = await createClient();
+  const { data: draft } = await sb
+    .schema('agentos')
+    .from('agents')
+    .select('*')
+    .eq('id', draftId)
+    .eq('is_draft', true)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (!draft) return { ok: false, error: 'draft_not_found' };
+  const validationError = validateCreate({
+    name: draft.name,
+    department: draft.department,
+    system_prompt: draft.system_prompt,
+    autonomy_level: draft.autonomy_level,
+    model_tier: draft.model_tier,
+    max_turns: draft.max_turns,
+    budget_cap_usd: draft.budget_cap_usd,
+  });
+  if (validationError) return { ok: false, error: validationError };
+  const { error } = await sb
+    .schema('agentos')
+    .from('agents')
+    .update({ is_draft: false, schedule_enabled: false })
+    .eq('id', draftId);
+  if (error) return { ok: false, error: error.message };
+  await sb.schema('agentos').from('audit_logs').insert({
+    user_id: claims.sub,
+    action: 'agent_draft_activate',
+    target_table: 'agents',
+    target_id: draftId,
+    before_value: { is_draft: true },
+    after_value: { is_draft: false, schedule_enabled: false },
+  });
+  revalidatePath('/agentos/agents');
+  return { ok: true, data: { id: draftId } };
+}
+
+export async function discardDraft(
+  draftId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const claims = await requireAdmin('/agentos/agents/new');
+  const sb = await createClient();
+  const now = new Date().toISOString();
+  const { error } = await sb
+    .schema('agentos')
+    .from('agents')
+    .update({ deleted_at: now })
+    .eq('id', draftId)
+    .eq('is_draft', true)
+    .is('deleted_at', null);
+  if (error) return { ok: false, error: error.message };
+  await sb.schema('agentos').from('audit_logs').insert({
+    user_id: claims.sub,
+    action: 'agent_draft_discard',
+    target_table: 'agents',
+    target_id: draftId,
+    before_value: { is_draft: true },
+    after_value: { deleted_at: now },
+  });
+  revalidatePath('/agentos/agents');
+  return { ok: true };
+}
+
+export async function createDraftFromTemplate(
+  slug: TemplateSlug,
+): Promise<{ ok: true; data: { id: string } } | { ok: false; error: string }> {
+  const templateMap: Record<TemplateSlug, typeof cooTemplate> = {
+    'coo-daily-report': cooTemplate,
+    'content-drafter': contentDrafterTemplate as unknown as typeof cooTemplate,
+    'task-summarizer': taskSummarizerTemplate as unknown as typeof cooTemplate,
+  };
+  const template = templateMap[slug];
+  if (!template) return { ok: false, error: 'template_not_found' };
+  const claims = await requireAdmin('/agentos/agents/new');
+  const sb = await createClient();
+  const f = template.fields as Record<string, unknown>;
+  const { data, error } = await sb
+    .schema('agentos')
+    .from('agents')
+    .insert({
+      owner_id: claims.sub,
+      name: (f.name as string) || template.name,
+      department: (template.department as Department),
+      system_prompt: (f.system_prompt as string) || '',
+      autonomy_level: (f.autonomy_level as AutonomyLevel) || 'semi_autonomous',
+      model_tier: (f.model_tier as ModelTier) || 'sonnet',
+      max_turns: (f.max_turns as number) || 25,
+      budget_cap_usd: (f.budget_cap_usd as number) || 1.0,
+      sensitive_tools: (f.sensitive_tools as string[]) || [],
+      denylist_globs: (f.denylist_globs as string[]) || [],
+      required_mcp_servers: (f.required_mcp_servers as string[]) || [],
+      schedule_cron: (f.schedule_cron as string) || null,
+      schedule_timezone: (f.schedule_timezone as string) || 'America/Mexico_City',
+      status: 'active',
+      is_draft: true,
+      config: {
+        suggested_tool_permissions: f.suggested_tool_permissions || {},
+        schedule_preset: f.schedule_preset || '',
+      },
+    })
+    .select('id')
+    .single();
+  if (error) return { ok: false, error: error.message };
+  await sb.schema('agentos').from('audit_logs').insert({
+    user_id: claims.sub,
+    action: 'agent_draft_create',
+    target_table: 'agents',
+    target_id: data!.id,
+    before_value: null,
+    after_value: { template_slug: slug, is_draft: true },
+  });
+  return { ok: true, data: { id: data!.id as string } };
+}
+
+// =============================================================================
 // Plan 03-04 — Run management Server Actions
 // =============================================================================
 //
