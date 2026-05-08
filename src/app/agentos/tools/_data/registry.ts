@@ -73,7 +73,31 @@ export const REGISTRY: IntegrationDef[] = [
       { name: 'mcp__google_calendar__update_event', description: 'Update a calendar event (approval-gated)', type: 'write', defaultPermission: 'approval_gated' },
     ],
   },
-  { key: 'gmail', label: 'Gmail', placeholder: true, tools: [] },
+  {
+    key: 'gmail',
+    label: 'Gmail',
+    placeholder: false,
+    // Phase 7 / Plan 07-02: Gmail MCP tool surface (RESEARCH-DERIVED from plan interfaces
+    // section — Wave 0 fixture is in skeleton mode pending REAL_GOOGLE_TOKEN probe re-run).
+    // When the operator re-runs scripts/probe_mcp_servers.py with REAL_GOOGLE_TOKEN,
+    // the fixture's fully_qualified_names will populate and these names can be verified.
+    // Branch B: No send tool confirmed yet (TOOL-06 partial; drafts auto-allowed).
+    // Branch A (when probe confirms send tool): add send tool here with approval_gated.
+    tools: [
+      // Read tools — always allowed
+      { name: 'mcp__gmail__search_threads',  description: 'Search Gmail threads by query', type: 'read', defaultPermission: 'always_allowed' },
+      { name: 'mcp__gmail__list_threads',    description: 'List Gmail threads', type: 'read', defaultPermission: 'always_allowed' },
+      { name: 'mcp__gmail__get_thread',      description: 'Get a specific Gmail thread by ID', type: 'read', defaultPermission: 'always_allowed' },
+      { name: 'mcp__gmail__list_labels',     description: 'List Gmail labels', type: 'read', defaultPermission: 'always_allowed' },
+      { name: 'mcp__gmail__get_message',     description: 'Get a specific Gmail message by ID', type: 'read', defaultPermission: 'always_allowed' },
+      // Draft tools — auto-allowed (drafts pathway, no delivery)
+      { name: 'mcp__gmail__create_draft',    description: 'Create a Gmail draft (not sent)', type: 'draft', defaultPermission: 'always_allowed' },
+      { name: 'mcp__gmail__list_drafts',     description: 'List Gmail drafts', type: 'read', defaultPermission: 'always_allowed' },
+      // Label management — always allowed (no mail delivery)
+      { name: 'mcp__gmail__label_thread',    description: 'Add a label to a Gmail thread', type: 'read', defaultPermission: 'always_allowed' },
+      { name: 'mcp__gmail__unlabel_thread',  description: 'Remove a label from a Gmail thread', type: 'read', defaultPermission: 'always_allowed' },
+    ],
+  },
   { key: 'drive', label: 'Google Drive', placeholder: true, tools: [] },
   {
     key: 'notion',

@@ -7,6 +7,7 @@ import { ToolPermissionsSection } from './_components/ToolPermissionsSection';
 import { ScheduleSection } from './_components/ScheduleSection';
 import { SlackChannelsSection } from './_components/SlackChannelsSection';
 import { CalendarSection } from './_components/CalendarSection';
+import { GmailLabelsSection } from './_components/GmailLabelsSection';
 
 export default async function EditAgentPage({
   params,
@@ -51,6 +52,7 @@ export default async function EditAgentPage({
     slack_channels?: string[];
     calendar_ids?: string[];
     calendar_id?: string | null;
+    gmail_label_allowlist?: string[];
   };
   const initialChannelIds = agentConfig.slack_channels ?? [];
   // Phase 7 / Plan 07-01: backward-compat read — prefer calendar_ids array (Phase 7)
@@ -58,6 +60,8 @@ export default async function EditAgentPage({
   const initialCalendarIds: string[] =
     agentConfig.calendar_ids ??
     (agentConfig.calendar_id ? [agentConfig.calendar_id] : []);
+  // Phase 7 / Plan 07-02: Gmail label allowlist (string[]). Empty = inbox-implicit.
+  const initialGmailLabels: string[] = agentConfig.gmail_label_allowlist ?? [];
 
   const editingTitle = 'Edit: ' + agent.name;
 
@@ -84,6 +88,13 @@ export default async function EditAgentPage({
         <CalendarSection
           agentId={id}
           initialCalendarIds={initialCalendarIds}
+        />
+      )}
+      {/* Phase 7 / Plan 07-02: Gmail label allowlist section — shown when Gmail is connected. */}
+      {connectedIntegrations.has('gmail') && (
+        <GmailLabelsSection
+          agentId={id}
+          initialLabels={initialGmailLabels}
         />
       )}
     </section>

@@ -354,3 +354,128 @@ export async function saveCalendarIds(
   revalidatePath(`/agentos/agents/${agentId}/edit`);
   return { ok: true };
 }
+
+// =============================================================================
+// Phase 7 / Plan 07-03 — Drive shared-drive allowlist Server Action
+// =============================================================================
+
+/**
+ * Persist agents.config.drive_shared_drive_ids for a given agent. Admin or owner only.
+ *
+ * The runner reads agents.config.drive_shared_drive_ids at run start and feeds it into
+ * the drive_allowlist PreToolUse hook. Shared drive IDs are opaque strings found in the
+ * URL when navigating to a shared drive (e.g., drive.google.com/drive/folders/0AABCD...).
+ *
+ * Empty array = no shared drives allowed (all Drive file operations will be denied by
+ * the My Drive hard block + empty allowlist). Non-empty restricts to the listed shared drives.
+ */
+export async function saveDriveSharedDrives(
+  agentId: string,
+  driveIds: string[],
+): Promise<Result> {
+  const sb = await createClient();
+  const { data: agentRow } = await sb
+    .schema('agentos')
+    .from('agents')
+    .select('id, owner_id, config')
+    .eq('id', agentId)
+    .single();
+  if (!agentRow) return { ok: false, error: 'agent_not_found' };
+
+  const claims = await requireAdminOrOwner(
+    `/agentos/agents/${agentId}/edit`,
+    agentRow.owner_id,
+  );
+
+  const beforeConfig = (agentRow.config ?? {}) as Record<string, unknown>;
+  // Sanitize: trim and deduplicate drive IDs.
+  const sanitizedDriveIds = [...new Set(driveIds.map((id) => id.trim()).filter(Boolean))];
+  const newConfig = { ...beforeConfig, drive_shared_drive_ids: sanitizedDriveIds };
+
+  const service = _serviceClient();
+  const { error: updateErr } = await service
+    .schema('agentos')
+    .from('agents')
+    .update({ config: newConfig })
+    .eq('id', agentId);
+  if (updateErr) return { ok: false, error: updateErr.message };
+
+  // Audit — column is `action` (NOT actionType).
+  try {
+    await service.schema('agentos').from('audit_logs').insert({
+      user_id: claims.sub,
+      action: 'agent_config_change',
+      target_table: 'agents',
+      target_id: agentId,
+      before_value: beforeConfig,
+      after_value: newConfig,
+    });
+  } catch {
+    // audit failures must never block the save.
+  }
+
+  revalidatePath(`/agentos/agents/${agentId}`);
+  revalidatePath(`/agentos/agents/${agentId}/edit`);
+  return { ok: true };
+}
+
+// =============================================================================
+// Phase 7 / Plan 07-02 — Gmail label allowlist Server Action
+// =============================================================================
+
+/**
+ * Persist agents.config.gmail_label_allowlist for a given agent. Admin or owner only.
+ *
+ * The runner reads agents.config.gmail_label_allowlist at run start and feeds it into
+ * the gmail_label_allowlist PreToolUse hook. An empty array = inbox-implicit (agent
+ * can read the entire inbox); non-empty restricts to threads with at least one matching label.
+ */
+export async function saveGmailLabels(
+  agentId: string,
+  labels: string[],
+): Promise<Result> {
+  const sb = await createClient();
+  const { data: agentRow } = await sb
+    .schema('agentos')
+    .from('agents')
+    .select('id, owner_id, config')
+    .eq('id', agentId)
+    .single();
+  if (!agentRow) return { ok: false, error: 'agent_not_found' };
+
+  const claims = await requireAdminOrOwner(
+    `/agentos/agents/${agentId}/edit`,
+    agentRow.owner_id,
+  );
+
+  const beforeConfig = (agentRow.config ?? {}) as Record<string, unknown>;
+  // Sanitize: trim and deduplicate labels.
+  const sanitizedLabels = [...new Set(labels.map((l) => l.trim()).filter(Boolean))];
+  const newConfig = { ...beforeConfig, gmail_label_allowlist: sanitizedLabels };
+
+  const service = _serviceClient();
+  const { error: updateErr } = await service
+    .schema('agentos')
+    .from('agents')
+    .update({ config: newConfig })
+    .eq('id', agentId);
+  if (updateErr) return { ok: false, error: updateErr.message };
+
+  // Audit — column is `action` (NOT actionType).
+  try {
+    await service.schema('agentos').from('audit_logs').insert({
+      user_id: claims.sub,
+      action: 'agent_config_change',
+      target_table: 'agents',
+      target_id: agentId,
+      before_value: beforeConfig,
+      after_value: newConfig,
+    });
+  } catch {
+    // audit failures must never block the save.
+  }
+
+  revalidatePath(`/agentos/agents/${agentId}`);
+  revalidatePath(`/agentos/agents/${agentId}/edit`);
+  return { ok: true };
+}
