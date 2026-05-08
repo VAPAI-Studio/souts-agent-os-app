@@ -75,7 +75,36 @@ export const REGISTRY: IntegrationDef[] = [
   },
   { key: 'gmail', label: 'Gmail', placeholder: true, tools: [] },
   { key: 'drive', label: 'Google Drive', placeholder: true, tools: [] },
-  { key: 'notion', label: 'Notion', placeholder: true, tools: [] },
+  {
+    key: 'notion',
+    label: 'Notion',
+    // Phase 7 / Plan 07-04: placeholder=false; full 18-tool surface from Wave 0 fixture.
+    // Description: Workspace-wide read/write — pages and databases the user shares with the
+    // integration. No per-agent allowlist (Notion's integration scope is the gate per CONTEXT).
+    placeholder: false,
+    tools: [
+      // Read tools — always allowed
+      { name: 'mcp__notion__notion-search',            description: 'Search pages and databases in the Notion workspace',      type: 'read',  defaultPermission: 'always_allowed' },
+      { name: 'mcp__notion__notion-fetch',             description: 'Fetch a Notion page or block by ID',                      type: 'read',  defaultPermission: 'always_allowed' },
+      { name: 'mcp__notion__notion-list-databases',    description: 'List databases accessible to the integration',             type: 'read',  defaultPermission: 'always_allowed' },
+      { name: 'mcp__notion__notion-query-database',    description: 'Query a database with filters and sorts',                  type: 'read',  defaultPermission: 'always_allowed' },
+      { name: 'mcp__notion__notion-get-database',      description: 'Get database schema and properties by ID',                type: 'read',  defaultPermission: 'always_allowed' },
+      { name: 'mcp__notion__notion-get-page-property', description: 'Get a specific property value from a page',               type: 'read',  defaultPermission: 'always_allowed' },
+      { name: 'mcp__notion__notion-get-users',         description: 'List users in the workspace',                             type: 'read',  defaultPermission: 'always_allowed' },
+      { name: 'mcp__notion__notion-get-comments',      description: 'Get comments on a page or block',                         type: 'read',  defaultPermission: 'always_allowed' },
+      // Write tools — approval-gated
+      { name: 'mcp__notion__notion-create-pages',      description: 'Create a new page in a parent page or database',          type: 'write', defaultPermission: 'approval_gated' },
+      { name: 'mcp__notion__notion-update-page',       description: 'Update page properties or content',                       type: 'write', defaultPermission: 'approval_gated' },
+      { name: 'mcp__notion__notion-move-pages',        description: 'Move pages to a new parent',                              type: 'write', defaultPermission: 'approval_gated' },
+      { name: 'mcp__notion__notion-duplicate-page',    description: 'Duplicate an existing page',                              type: 'write', defaultPermission: 'approval_gated' },
+      { name: 'mcp__notion__notion-create-database',   description: 'Create a new database',                                   type: 'write', defaultPermission: 'approval_gated' },
+      { name: 'mcp__notion__notion-update-data-source',description: 'Update a database schema or properties',                  type: 'write', defaultPermission: 'approval_gated' },
+      { name: 'mcp__notion__notion-create-view',       description: 'Create a new view for a database',                        type: 'write', defaultPermission: 'approval_gated' },
+      { name: 'mcp__notion__notion-update-view',       description: 'Update an existing database view',                        type: 'write', defaultPermission: 'approval_gated' },
+      { name: 'mcp__notion__notion-create-comment',    description: 'Create a comment on a page or block',                     type: 'write', defaultPermission: 'approval_gated' },
+      { name: 'mcp__notion__notion-append-blocks',     description: 'Append block children to a page or block',               type: 'write', defaultPermission: 'approval_gated' },
+    ],
+  },
 ];
 
 export const ALL_REGISTERED_TOOLS: string[] = REGISTRY
