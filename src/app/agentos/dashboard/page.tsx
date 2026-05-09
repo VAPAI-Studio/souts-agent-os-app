@@ -1,12 +1,18 @@
 /**
  * Phase 6 / Plan 06-05 — Dashboard home page (`/agentos/dashboard`).
+ * Extended by Phase 9 / Plan 09-03 — stat cards + activity feed.
  *
  * Server Component. Fetches today's COO run + vault signed URL + pending
  * drafts count, then hands off to the client `CooCard` for the seven-state
  * Realtime-driven render.
  *
+ * Phase 9 extension: also fetches stat card data (approvalsCount,
+ * activeAgents, costToday, nextScheduled) and initial activity feed rows
+ * via Promise.all, then renders HomeStatCards + ActivityFeed below the
+ * CooCard. CooCard props and 7-state Realtime behaviour are UNCHANGED.
+ *
  * UI-SPEC §Surface 4 — Page layout: PageHeader title "Dashboard" + COO card
- * occupying the top full-width slot. No actions slot at MVP.
+ * occupying the top full-width slot + stat cards row + activity feed below.
  *
  * Auth gate: dashboard is visible to all agentos roles
  * (admin / member / agent_owner / viewer). The page calls
@@ -23,6 +29,8 @@ import { requireAgentosRole } from '@/lib/supabase/agentos';
 import { createClient } from '@/lib/supabase/server';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { CooCard } from './_components/CooCard';
+import { HomeStatCards } from './_components/HomeStatCards';
+import { ActivityFeed } from './_components/ActivityFeed';
 import {
   fetchCooAgentId,
   fetchTodaysCooRun,
@@ -30,6 +38,13 @@ import {
   fetchPendingDraftsCount,
   todayIsoUtc,
 } from './_data/coo';
+import {
+  fetchPendingApprovalsCount,
+  fetchActiveAgentsCount,
+  fetchTodaysCostUsd,
+  fetchNextScheduledAgent,
+  fetchActivityFeed,
+} from './_data/home';
 
 function _serviceRoleClient() {
   // Inline service-role factory — Phase 4/06-02b plans noted
@@ -71,6 +86,21 @@ export default async function DashboardPage() {
   const cooAgentId = await fetchCooAgentId(userSupabase);
   const todayIso = todayIsoUtc();
 
+  // Phase 9 Plan 09-03: fetch stat card + activity feed data in parallel
+  const [
+    approvalsCount,
+    activeAgents,
+    costToday,
+    nextScheduled,
+    activityFeed,
+  ] = await Promise.all([
+    fetchPendingApprovalsCount(),
+    fetchActiveAgentsCount(),
+    fetchTodaysCostUsd(),
+    fetchNextScheduledAgent(),
+    fetchActivityFeed(20),
+  ]);
+
   // No COO agent seeded yet — render the card in its no-run state with a
   // migration hint. Do NOT crash (hard acceptance from CLAUDE.md guidance).
   if (!cooAgentId) {
@@ -85,6 +115,13 @@ export default async function DashboardPage() {
           accessToken={accessToken}
           todayIso={todayIso}
         />
+        <HomeStatCards
+          initialApprovals={approvalsCount}
+          initialActiveAgents={activeAgents}
+          initialCostToday={costToday}
+          initialNextScheduled={nextScheduled}
+        />
+        <ActivityFeed initialRows={activityFeed} />
       </section>
     );
   }
@@ -113,6 +150,13 @@ export default async function DashboardPage() {
         accessToken={accessToken}
         todayIso={todayIso}
       />
+      <HomeStatCards
+        initialApprovals={approvalsCount}
+        initialActiveAgents={activeAgents}
+        initialCostToday={costToday}
+        initialNextScheduled={nextScheduled}
+      />
+      <ActivityFeed initialRows={activityFeed} />
     </section>
   );
 }
