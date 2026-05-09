@@ -2,23 +2,33 @@
 /**
  * ChatMessageList — renders historical and live chat messages.
  *
- * - Historical messages: static bubbles passed as props (loaded on mount by ChatInterface).
- * - Live message: when currentRunId is set, subscribes to useRunStatus + useRunLogs
- *   and renders the streaming agent response.
+ * - Historical messages: structured parts (text + tool_use) passed as props.
+ * - Live message: when currentRunId is set, subscribes to useRunStatus +
+ *   useRunLogs and renders the streaming agent response as it arrives.
+ *
+ * Rendering:
+ *   - User bubble: right-aligned, accent background.
+ *   - Agent bubble: left-aligned, surface-raised. Markdown rendered via
+ *     @uiw/react-markdown-preview (already in node_modules transitively).
+ *   - Tool calls: rendered inline between text parts as collapsible chips.
  *
  * Pitfall 3 (RESEARCH.md): sort logs client-side by created_at to handle
  * out-of-order Realtime delivery.
- *
- * Approval-gate state: renders testid={`chat-message-{n}-awaiting-approval`}
- * when run status is 'awaiting_approval'.
  */
+import dynamic from 'next/dynamic';
+import { useState } from 'react';
 import { useRunStatus, useRunLogs } from '@/lib/supabase/realtime';
-import { parseAgentMessage } from '@/lib/chat/parseAgentMessage';
+import { parseAgentMessageParts, type MessagePart } from '@/lib/chat/parseAgentMessage';
+
+// react-markdown-preview pulls window — needs ssr:false (matches VaultFileEditor pattern).
+const MarkdownPreview = dynamic(() => import('@uiw/react-markdown-preview'), {
+  ssr: false,
+});
 
 export interface HistoricalChatMessage {
   runId: string;
   userText: string;
-  agentText: string;
+  agentParts: MessagePart[];
   status: string;
   createdAt: string;
 }
@@ -33,13 +43,16 @@ export function ChatMessageList({
   currentUserText: string | null;
 }) {
   return (
-    <ol className="flex flex-col gap-3" data-testid="chat-message-list">
+    <ol
+      className="flex flex-col gap-6"
+      data-testid="chat-message-list"
+    >
       {historicalMessages.map((m, idx) => (
         <ChatMessageBubble
           key={m.runId}
           testid={`chat-message-${idx}`}
           userText={m.userText}
-          agentText={m.agentText}
+          agentParts={m.agentParts}
           status={m.status}
         />
       ))}
@@ -54,38 +67,125 @@ export function ChatMessageList({
   );
 }
 
+function UserBubble({ text, testid }: { text: string; testid: string }) {
+  return (
+    <div
+      className="self-end max-w-[80%] bg-accent/10 px-3 py-2 rounded-lg text-[13px] whitespace-pre-wrap"
+      data-testid={testid}
+    >
+      {text}
+    </div>
+  );
+}
+
+function ToolUseChip({
+  name,
+  input,
+  testid,
+}: {
+  name: string;
+  input: unknown;
+  testid: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const displayName = name.replace(/^mcp__/, '').replace(/__/g, '.');
+  return (
+    <div
+      className="self-start max-w-[80%] text-[12px] font-mono text-text-muted border border-border rounded-md bg-surface"
+      data-testid={testid}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full text-left px-2 py-1 flex items-center gap-2 hover:bg-surface-raised rounded-md"
+      >
+        <span aria-hidden="true">{open ? '▾' : '▸'}</span>
+        <span>tool</span>
+        <span className="text-text">{displayName}</span>
+      </button>
+      {open && (
+        <pre className="px-2 pb-2 m-0 text-[11px] whitespace-pre-wrap break-all overflow-x-auto">
+          {JSON.stringify(input, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+function AgentBubble({
+  parts,
+  fallback,
+  testid,
+}: {
+  parts: MessagePart[];
+  fallback: string;
+  testid: string;
+}) {
+  const hasContent = parts.length > 0;
+
+  if (!hasContent) {
+    return (
+      <div
+        className="self-start max-w-[80%] bg-surface-raised border border-border px-3 py-2 rounded-lg text-[13px] text-text-muted"
+        data-testid={testid}
+      >
+        {fallback}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2" data-testid={testid}>
+      {parts.map((p, i) =>
+        p.kind === 'text' ? (
+          <div
+            key={i}
+            className="self-start max-w-[80%] bg-surface-raised border border-border px-3 py-2 rounded-lg text-[13px] leading-relaxed"
+            data-color-mode="light"
+          >
+            <MarkdownPreview
+              source={p.text}
+              wrapperElement={{ 'data-color-mode': 'light' }}
+              style={{ background: 'transparent', fontSize: 13 }}
+            />
+          </div>
+        ) : (
+          <ToolUseChip
+            key={i}
+            name={p.name}
+            input={p.input}
+            testid={`${testid}-tool-${i}`}
+          />
+        ),
+      )}
+    </div>
+  );
+}
+
 function ChatMessageBubble({
   userText,
-  agentText,
+  agentParts,
   status,
   testid,
 }: {
   userText: string;
-  agentText: string;
+  agentParts: MessagePart[];
   status: string;
   testid: string;
 }) {
+  const fallback =
+    status === 'failed'
+      ? '(run failed)'
+      : status === 'cancelled'
+        ? '(cancelled)'
+        : status === 'expired'
+          ? '(expired)'
+          : '...';
+
   return (
-    <li data-testid={testid} className="flex flex-col gap-1">
-      <div
-        className="self-end max-w-[80%] bg-accent/10 p-2 rounded-md text-[13px] whitespace-pre-wrap"
-        data-testid={`${testid}-user`}
-      >
-        {userText}
-      </div>
-      <div
-        className="self-start max-w-[80%] bg-surface-raised border border-border p-2 rounded-md text-[13px] whitespace-pre-wrap leading-relaxed"
-        data-testid={`${testid}-agent`}
-      >
-        {agentText ||
-          (status === 'failed'
-            ? '(run failed)'
-            : status === 'cancelled'
-              ? '(cancelled)'
-              : status === 'expired'
-                ? '(expired)'
-                : '...')}
-      </div>
+    <li data-testid={testid} className="flex flex-col gap-2">
+      <UserBubble text={userText} testid={`${testid}-user`} />
+      <AgentBubble parts={agentParts} fallback={fallback} testid={`${testid}-agent`} />
       {status === 'awaiting_approval' && (
         <p
           className="text-[11px] text-warning self-start"
@@ -107,8 +207,6 @@ function LiveChatMessage({
   userText: string;
   testid: string;
 }) {
-  // useRunStatus signature: (runId: string, initial: AgentRunRow) — pass a minimal initial
-  // We cast to the required shape; null fields are acceptable for an in-flight run.
   const statusRow = useRunStatus(runId, {
     id: runId,
     status: 'queued',
@@ -123,34 +221,22 @@ function LiveChatMessage({
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
   );
 
-  // Concatenate all 'assistant' log entries into a single agent reply string.
-  // parseAgentMessage extracts text blocks and filters ThinkingBlock / tool_use
-  // envelopes that the SDK emits — without it the user sees raw JSON.
-  const agentText = sortedLogs
+  // Flatten all assistant log entries into ordered MessagePart[].
+  const agentParts: MessagePart[] = sortedLogs
     .filter((l) => l.message_type === 'assistant')
-    .map((l) => parseAgentMessage(l.content))
-    .filter(Boolean)
-    .join('\n\n');
+    .flatMap((l) => parseAgentMessageParts(l.content));
 
   const currentStatus = statusRow?.status ?? 'queued';
 
+  const fallback =
+    currentStatus === 'queued' || currentStatus === 'dispatched'
+      ? '...'
+      : currentStatus ?? '...';
+
   return (
-    <li data-testid={testid} className="flex flex-col gap-1">
-      <div
-        className="self-end max-w-[80%] bg-accent/10 p-2 rounded-md text-[13px] whitespace-pre-wrap"
-        data-testid={`${testid}-user`}
-      >
-        {userText}
-      </div>
-      <div
-        className="self-start max-w-[80%] bg-surface-raised border border-border p-2 rounded-md text-[13px] whitespace-pre-wrap leading-relaxed"
-        data-testid={`${testid}-agent`}
-      >
-        {agentText ||
-          (currentStatus === 'queued' || currentStatus === 'dispatched'
-            ? '...'
-            : currentStatus ?? '...')}
-      </div>
+    <li data-testid={testid} className="flex flex-col gap-2">
+      <UserBubble text={userText} testid={`${testid}-user`} />
+      <AgentBubble parts={agentParts} fallback={fallback} testid={`${testid}-agent`} />
       {currentStatus === 'awaiting_approval' && (
         <p
           className="text-[11px] text-warning self-start"

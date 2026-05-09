@@ -29,6 +29,8 @@ interface SlackChannel {
   id: string;
   name: string;
   is_member?: boolean;
+  is_private?: boolean;
+  is_archived?: boolean;
 }
 
 function _serviceClient() {
@@ -43,17 +45,25 @@ export async function GET() {
   await requireAdmin('/api/integrations/slack/channels');
 
   const supabase = _serviceClient();
-  const { data: conn } = await supabase
+  // Prefer the bot install row (has bot_user_id) — it's the one whose token
+  // posts as the bot. There may be both a user-OAuth and a bot-install row
+  // marked 'connected'; pick the bot if available, else the first.
+  const { data: conns } = await supabase
     .schema('agentos')
     .from('tool_connections')
     .select('metadata')
     .eq('integration', 'slack')
-    .eq('status', 'connected')
-    .maybeSingle();
+    .eq('status', 'connected');
 
-  if (!conn) {
+  if (!conns || conns.length === 0) {
     return NextResponse.json({ channels: [] });
   }
+
+  const botRow = conns.find((c) => {
+    const m = (c.metadata ?? {}) as Record<string, unknown>;
+    return typeof m.bot_user_id === 'string';
+  });
+  const conn = botRow ?? conns[0];
 
   const metadata = conn.metadata as { access_token_ciphertext?: string } | null;
   const ciphertext = metadata?.access_token_ciphertext;
@@ -74,14 +84,34 @@ export async function GET() {
   // Slack Web API channel-listing call below — public + private. Limit 200
   // (single page covers the common case; pagination deferred until needed).
   const resp = await fetch(
-    'https://slack.com/api/conversations.list?types=public_channel,private_channel&limit=200',
+    'https://slack.com/api/conversations.list?types=public_channel,private_channel&exclude_archived=true&limit=200',
     { headers: { Authorization: `Bearer ${token}` } },
   );
-  const json = (await resp.json()) as { channels?: SlackChannel[]; ok?: boolean };
+  const json = (await resp.json()) as {
+    channels?: SlackChannel[];
+    ok?: boolean;
+    error?: string;
+  };
 
+  if (!json.ok) {
+    return NextResponse.json(
+      { channels: [], error: json.error ?? 'slack_api_error' },
+      { status: 502 },
+    );
+  }
+
+  // Return ALL channels (public + private the token can see). The UI surfaces
+  // is_member so admins know whether the bot can already post there. Selecting
+  // a non-member channel is allowed — the runner allowlist gate fires before
+  // the post, and the user is prompted to /invite the bot to that channel.
   const channels = (json.channels ?? [])
-    .filter((c) => c.is_member)
-    .map((c) => ({ id: c.id, name: c.name }));
+    .filter((c) => !c.is_archived)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      is_member: !!c.is_member,
+      is_private: !!c.is_private,
+    }));
 
   return NextResponse.json({ channels });
 }
