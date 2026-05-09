@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/Table';
 import { cn } from '@/lib/cn';
+import { formatRelativeTime } from '@/lib/utils/format';
 
 export default async function AgentsListPage({
   searchParams,
@@ -229,14 +230,4 @@ function statusToTone(status: string): Tone {
   }
 }
 
-function formatRelativeTime(iso: string): string {
-  const ms = new Date(iso).getTime() - Date.now();
-  const abs = Math.abs(ms);
-  const min = Math.floor(abs / 60000);
-  const hr = Math.floor(min / 60);
-  const day = Math.floor(hr / 24);
-  const future = ms >= 0;
-  if (day > 0) return future ? `in ${day}d` : `${day}d ago`;
-  if (hr > 0) return future ? `in ${hr}h` : `${hr}h ago`;
-  return future ? `in ${min}m` : `${min}m ago`;
-}
+// formatRelativeTime extracted to @/lib/utils/format — see Phase 9 Plan 09-03
