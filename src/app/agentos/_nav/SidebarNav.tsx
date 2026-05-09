@@ -18,25 +18,30 @@ interface NavItem {
 }
 
 /**
- * Nav items locked for Phase 03.1 + extended in Plan 03-05.
- * - 'Runs' still points at /agentos/agents (run-detail pages are nested under agents).
- * - 'Logs' was added in Plan 03-05 once /agentos/logs shipped (filterable agent_runs).
- * - No "Coming soon" graveyards: only built routes appear here.
+ * Nav items.
+ *
+ * Order: morning-routine landing first (Dashboard), then operational
+ * surfaces (Approvals, Agents), then knowledge (Vault, Projects),
+ * then platform (Costs, Logs), then admin (Tools, Team, Health, Settings).
+ *
+ * The original "Runs" placeholder was removed (2026-05-09) — it pointed
+ * at /agentos/agents which collided with the Agents item, AND
+ * /agentos/logs already provides the filterable runs view that Runs
+ * was meant to become.
  */
 const NAV_ITEMS: ReadonlyArray<NavItem> = [
-  { label: 'Agents', href: '/agentos/agents', testId: 'nav-agents' },
-  { label: 'Vault', href: '/agentos/vault', testId: 'nav-vault' },
-  { label: 'Approvals', href: '/agentos/approvals', testId: 'nav-approvals', adminOnly: true },
-  { label: 'Projects', href: '/agentos/projects', testId: 'nav-projects' },
-  { label: 'Team', href: '/agentos/team', testId: 'nav-team', adminOnly: true },
-  // Plan 06-02: Tool Registry — admin-only catalog of integrations + per-tool defaults.
-  { label: 'Tools', href: '/agentos/tools', testId: 'nav-tools', adminOnly: true },
-  { label: 'Runs', href: '/agentos/agents', testId: 'nav-runs' }, // placeholder href
-  { label: 'Logs', href: '/agentos/logs', testId: 'nav-logs' },
-  // Plan 09-02: Cost analytics dashboard — all agentos roles can view.
-  { label: 'Costs', href: '/agentos/costs', testId: 'nav-costs' },
   // Plan 06-05: Dashboard home page surfacing the COO daily-report briefing card.
   { label: 'Dashboard', href: '/agentos/dashboard', testId: 'nav-dashboard' },
+  { label: 'Approvals', href: '/agentos/approvals', testId: 'nav-approvals', adminOnly: true },
+  { label: 'Agents', href: '/agentos/agents', testId: 'nav-agents' },
+  { label: 'Vault', href: '/agentos/vault', testId: 'nav-vault' },
+  { label: 'Projects', href: '/agentos/projects', testId: 'nav-projects' },
+  // Plan 09-02: Cost analytics dashboard — all agentos roles can view.
+  { label: 'Costs', href: '/agentos/costs', testId: 'nav-costs' },
+  { label: 'Logs', href: '/agentos/logs', testId: 'nav-logs' },
+  // Plan 06-02: Tool Registry — admin-only catalog of integrations + per-tool defaults.
+  { label: 'Tools', href: '/agentos/tools', testId: 'nav-tools', adminOnly: true },
+  { label: 'Team', href: '/agentos/team', testId: 'nav-team', adminOnly: true },
   // Plan 09-05: Admin-only Health page showing 8 service rows + state pills.
   { label: 'Health', href: '/agentos/health', testId: 'nav-health', adminOnly: true },
   // Plan 09-04: Admin-only Settings page for org-wide configuration (daily threshold etc.).
@@ -52,9 +57,6 @@ export function SidebarNav({ email, role }: SidebarNavProps) {
   const pathname = usePathname() ?? '';
 
   const isActive = (href: string) => {
-    // Exact match or descendant route — but 'Runs' (placeholder href=/agentos/agents)
-    // intentionally collides with 'Agents'; do not double-highlight. Only highlight
-    // 'Agents' for /agentos/agents/*; 'Runs' will become active when /agentos/logs ships.
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
