@@ -33,6 +33,8 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { label: 'Tools', href: '/agentos/tools', testId: 'nav-tools', adminOnly: true },
   { label: 'Runs', href: '/agentos/agents', testId: 'nav-runs' }, // placeholder href
   { label: 'Logs', href: '/agentos/logs', testId: 'nav-logs' },
+  // Plan 09-02: Cost analytics dashboard — all agentos roles can view.
+  { label: 'Costs', href: '/agentos/costs', testId: 'nav-costs' },
   // Plan 06-05: Dashboard home page surfacing the COO daily-report briefing card.
   { label: 'Dashboard', href: '/agentos/dashboard', testId: 'nav-dashboard' },
 ];

@@ -247,10 +247,11 @@ export async function fetchCostByProject(p: PeriodResolved): Promise<ProjectCost
       .in('id', agentIds);
 
     // Build agent → project map
+    // Supabase join returns projects as an array (even for one-to-one relations via !inner)
     type AgentWithProject = {
       id: string;
       project_id: string | null;
-      projects: { id: string; name: string } | null;
+      projects: Array<{ id: string; name: string }> | { id: string; name: string } | null;
     };
 
     const agentProjectMap = new Map<
@@ -259,10 +260,11 @@ export async function fetchCostByProject(p: PeriodResolved): Promise<ProjectCost
     >();
 
     if (agentData) {
-      for (const a of agentData as AgentWithProject[]) {
+      for (const a of (agentData as unknown as AgentWithProject[])) {
+        const proj = Array.isArray(a.projects) ? a.projects[0] : a.projects;
         agentProjectMap.set(a.id, {
           project_id: a.project_id ?? null,
-          project_name: a.projects?.name ?? null,
+          project_name: proj?.name ?? null,
         });
       }
     }
@@ -355,7 +357,7 @@ export async function fetchCostsTable(
       name: string;
       dept: string | null;
       project_id: string | null;
-      projects: { id: string; name: string } | null;
+      projects: Array<{ id: string; name: string }> | { id: string; name: string } | null;
     };
 
     const agentMap = new Map<
@@ -364,12 +366,13 @@ export async function fetchCostsTable(
     >();
 
     if (agentData) {
-      for (const a of agentData as AgentWithProject[]) {
+      for (const a of (agentData as unknown as AgentWithProject[])) {
+        const proj = Array.isArray(a.projects) ? a.projects[0] : a.projects;
         agentMap.set(a.id, {
           name: a.name,
           dept: a.dept ?? null,
           project_id: a.project_id ?? null,
-          project_name: a.projects?.name ?? null,
+          project_name: proj?.name ?? null,
         });
       }
     }

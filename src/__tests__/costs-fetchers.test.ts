@@ -19,10 +19,10 @@ const period: PeriodResolved = {
 // ── Supabase mock factory ──────────────────────────────────────────────────
 
 function makeSupabaseMock(tableData: Record<string, unknown[]>) {
-  const builder = (data: unknown[], error: null | Error = null) => ({
+  const builder = (data: unknown[], _error: null = null) => ({
     select: vi.fn().mockReturnThis(),
     schema: vi.fn().mockReturnThis(),
-    from: vi.fn((table: string) => builder(tableData[table] ?? [], null)),
+    from: vi.fn((table: string) => builder(tableData[table] ?? [])),
     gte: vi.fn().mockReturnThis(),
     lt: vi.fn().mockReturnThis(),
     lte: vi.fn().mockReturnThis(),
@@ -32,7 +32,7 @@ function makeSupabaseMock(tableData: Record<string, unknown[]>) {
     limit: vi.fn().mockReturnThis(),
     // Resolve the builder: returns { data, error }
     then: vi.fn().mockImplementation((cb: (val: { data: unknown[]; error: null }) => void) => {
-      return Promise.resolve(cb({ data, error }));
+      return Promise.resolve(cb({ data, error: null }));
     }),
   });
 
