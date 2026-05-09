@@ -1,8 +1,8 @@
 {
   "crons": [
-    {
-      "path": "/api/cron/scheduled-trigger",
-      "schedule": "0 8 * * *"
-    }
+    { "path": "/api/cron/scheduled-trigger",     "schedule": "0 8 * * *" },
+    { "path": "/api/cron/monthly-reset",         "schedule": "0 0 1 * *" },
+    { "path": "/api/cron/daily-aggregate-alert", "schedule": "*/15 * * * *" },
+    { "path": "/api/cron/health-probe",          "schedule": "*/5 * * * *" }
   ]
 }
