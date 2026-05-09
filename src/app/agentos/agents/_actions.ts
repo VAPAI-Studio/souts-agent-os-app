@@ -44,6 +44,8 @@ export interface CreateAgentInput {
   model_tier: ModelTier;
   max_turns: number;
   budget_cap_usd: number;
+  /** Plan 09-04: cumulative monthly spend cap. NULL = no cap. */
+  monthly_budget_usd?: number | null;
   sensitive_tools?: string[]; // goes into config.sensitive_tools
   denylist_globs?: string[]; // goes into config.denylist_globs
 }
@@ -214,6 +216,18 @@ export async function updateAgent(
   ] as const;
   for (const k of editable) {
     if (k in patch && patch[k] !== undefined) update[k] = patch[k];
+  }
+  // Plan 09-04: monthly_budget_usd — nullable (NULL = no cap). Validate non-negative.
+  if ('monthly_budget_usd' in patch) {
+    const rawBudget = patch.monthly_budget_usd;
+    const budgetVal: number | null =
+      rawBudget === undefined || rawBudget === null
+        ? null
+        : Number(rawBudget);
+    if (budgetVal !== null && (Number.isNaN(budgetVal) || budgetVal < 0)) {
+      return { ok: false as const, error: 'Monthly budget must be a non-negative number' };
+    }
+    update.monthly_budget_usd = budgetVal;
   }
   if (
     patch.sensitive_tools !== undefined ||
@@ -445,6 +459,8 @@ interface DraftPatch {
   model_tier?: ModelTier;
   max_turns?: number;
   budget_cap_usd?: number;
+  /** Plan 09-04: cumulative monthly spend cap. NULL = no cap. */
+  monthly_budget_usd?: number | null;
   sensitive_tools?: string[];
   denylist_globs?: string[];
   required_mcp_servers?: string[];
@@ -509,7 +525,7 @@ export async function patchDraft(
   const update: Record<string, unknown> = {};
   const patchableFields = [
     'name', 'department', 'system_prompt', 'autonomy_level', 'model_tier',
-    'max_turns', 'budget_cap_usd', 'sensitive_tools', 'denylist_globs',
+    'max_turns', 'budget_cap_usd', 'monthly_budget_usd', 'sensitive_tools', 'denylist_globs',
     'required_mcp_servers', 'schedule_cron', 'schedule_timezone',
     'schedule_enabled', 'config',
   ] as const;

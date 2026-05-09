@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { patchDraft } from '../../_actions';
+import { MonthlyBudgetSection } from '../../[id]/edit/_components/MonthlyBudgetSection';
 
 const AUTONOMY_LEVELS = [
   { value: 'manual', label: 'Manual — user triggers every run' },
@@ -47,6 +48,10 @@ export function AutonomyStep({ draft }: AutonomyStepProps) {
     const modelTier = String(fd.get('model_tier') || '') as ModelTier;
     const maxTurns = Number(fd.get('max_turns'));
     const budgetCapUsd = Number(fd.get('budget_cap_usd'));
+    // Plan 09-04: monthly_budget_usd — empty string → null (no cap).
+    const rawMonthlyBudget = String(fd.get('monthly_budget_usd') ?? '').trim();
+    const monthly_budget_usd: number | null =
+      rawMonthlyBudget === '' ? null : Number(rawMonthlyBudget);
 
     if (maxTurns < 1 || maxTurns > 100) {
       setError('max_turns must be between 1 and 100');
@@ -58,12 +63,18 @@ export function AutonomyStep({ draft }: AutonomyStepProps) {
       setSubmitting(false);
       return;
     }
+    if (monthly_budget_usd !== null && (Number.isNaN(monthly_budget_usd) || monthly_budget_usd < 0)) {
+      setError('Monthly budget must be a non-negative number');
+      setSubmitting(false);
+      return;
+    }
 
     const result = await patchDraft(draft.id as string, {
       autonomy_level: autonomyLevel,
       model_tier: modelTier,
       max_turns: maxTurns,
       budget_cap_usd: budgetCapUsd,
+      monthly_budget_usd,
     });
     setSubmitting(false);
     if (!result.ok) {
@@ -149,6 +160,13 @@ export function AutonomyStep({ draft }: AutonomyStepProps) {
           error={!!error}
         />
       </FormField>
+
+      {/* Plan 09-04: Monthly budget — same component as Edit page for AGENT-03 parity. */}
+      <MonthlyBudgetSection
+        initialValue={(draft.monthly_budget_usd as number | null | undefined) ?? null}
+        fieldName="monthly_budget_usd"
+        inputId="wizard_monthly_budget_usd"
+      />
 
       {error && (
         <p className="text-destructive text-[13px]" data-testid="step-error">

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
+import { MonthlyBudgetSection } from './_components/MonthlyBudgetSection';
 
 const DEPARTMENTS = [
   'ceo',
@@ -47,6 +48,10 @@ interface AgentRow {
   model_tier: Model;
   max_turns: number;
   budget_cap_usd: number | null;
+  /** Plan 09-04: cumulative monthly spend cap. NULL = no cap. */
+  monthly_budget_usd?: number | null;
+  /** Plan 09-04: cumulative monthly spend so far (shown in MonthlyBudgetSection). */
+  monthly_spent_usd?: number | null;
   config?: {
     sensitive_tools?: string[];
     denylist_globs?: string[];
@@ -63,6 +68,10 @@ export function EditAgentForm({ agent }: { agent: AgentRow }) {
     setSubmitting(true);
     setError(null);
     const fd = new FormData(e.currentTarget);
+    // Plan 09-04: monthly_budget_usd — empty string → null (no cap).
+    const rawBudget = String(fd.get('monthly_budget_usd') ?? '').trim();
+    const monthly_budget_usd: number | null =
+      rawBudget === '' ? null : Number(rawBudget);
     const result = await updateAgent(agent.id, {
       name: String(fd.get('name')),
       department: fd.get('department') as Department,
@@ -71,6 +80,7 @@ export function EditAgentForm({ agent }: { agent: AgentRow }) {
       model_tier: fd.get('model_tier') as Model,
       max_turns: Number(fd.get('max_turns')),
       budget_cap_usd: Number(fd.get('budget_cap_usd')),
+      monthly_budget_usd,
       sensitive_tools: String(fd.get('sensitive_tools') || '')
         .split(',')
         .map((s) => s.trim())
@@ -191,6 +201,11 @@ export function EditAgentForm({ agent }: { agent: AgentRow }) {
           error={hasError}
         />
       </FormField>
+      {/* Plan 09-04: cumulative monthly budget cap (separate from per-run budget_cap_usd). */}
+      <MonthlyBudgetSection
+        initialValue={agent.monthly_budget_usd ?? null}
+        initialSpent={agent.monthly_spent_usd ?? undefined}
+      />
       <FormField
         label="Sensitive tools"
         htmlFor="sensitive_tools"
