@@ -523,20 +523,56 @@ export async function patchDraft(
   }
   const claims = await requireAdmin('/agentos/agents/new');
   const sb = await createClient();
-  // Build a typed update object from the patch keys
+
+  // Top-level columns that map directly to `agents` table columns.
+  // sensitive_tools and denylist_globs are NOT here — they live inside config jsonb.
   const update: Record<string, unknown> = {};
-  const patchableFields = [
+  const topLevelFields = [
     'name', 'department', 'system_prompt', 'autonomy_level', 'model_tier',
     'max_turns', 'budget_cap_usd', 'monthly_budget_usd', 'project_id',
-    'sensitive_tools', 'denylist_globs',
     'required_mcp_servers', 'schedule_cron', 'schedule_timezone',
-    'schedule_enabled', 'config',
+    'schedule_enabled',
   ] as const;
-  for (const key of patchableFields) {
+  for (const key of topLevelFields) {
     if (key in patch && patch[key] !== undefined) {
       update[key] = patch[key];
     }
   }
+
+  // sensitive_tools / denylist_globs / explicit config patch all merge into
+  // the existing config jsonb. Need to read the current row first so we don't
+  // clobber unrelated config keys.
+  const needsConfigMerge =
+    patch.sensitive_tools !== undefined ||
+    patch.denylist_globs !== undefined ||
+    patch.config !== undefined;
+
+  if (needsConfigMerge) {
+    const { data: before } = await sb
+      .schema('agentos')
+      .from('agents')
+      .select('config')
+      .eq('id', draftId)
+      .eq('is_draft', true)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    const beforeConfig: Record<string, unknown> =
+      (before?.config as Record<string, unknown> | null) ?? {};
+
+    const mergedConfig: Record<string, unknown> = {
+      ...beforeConfig,
+      ...(patch.config ?? {}),
+    };
+    if (patch.sensitive_tools !== undefined) {
+      mergedConfig.sensitive_tools = patch.sensitive_tools;
+    }
+    if (patch.denylist_globs !== undefined) {
+      mergedConfig.denylist_globs = patch.denylist_globs;
+    }
+    update.config = mergedConfig;
+  }
+
   const { data: updated, error } = await sb
     .schema('agentos')
     .from('agents')
