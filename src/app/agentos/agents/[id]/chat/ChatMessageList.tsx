@@ -13,6 +13,7 @@
  * when run status is 'awaiting_approval'.
  */
 import { useRunStatus, useRunLogs } from '@/lib/supabase/realtime';
+import { parseAgentMessage } from '@/lib/chat/parseAgentMessage';
 
 export interface HistoricalChatMessage {
   runId: string;
@@ -67,13 +68,13 @@ function ChatMessageBubble({
   return (
     <li data-testid={testid} className="flex flex-col gap-1">
       <div
-        className="self-end max-w-[80%] bg-accent/10 p-2 rounded-md text-[13px]"
+        className="self-end max-w-[80%] bg-accent/10 p-2 rounded-md text-[13px] whitespace-pre-wrap"
         data-testid={`${testid}-user`}
       >
         {userText}
       </div>
       <div
-        className="self-start max-w-[80%] bg-surface-raised border border-border p-2 rounded-md text-[13px]"
+        className="self-start max-w-[80%] bg-surface-raised border border-border p-2 rounded-md text-[13px] whitespace-pre-wrap leading-relaxed"
         data-testid={`${testid}-agent`}
       >
         {agentText ||
@@ -123,25 +124,26 @@ function LiveChatMessage({
   );
 
   // Concatenate all 'assistant' log entries into a single agent reply string.
+  // parseAgentMessage extracts text blocks and filters ThinkingBlock / tool_use
+  // envelopes that the SDK emits — without it the user sees raw JSON.
   const agentText = sortedLogs
     .filter((l) => l.message_type === 'assistant')
-    .map((l) =>
-      typeof l.content === 'string' ? l.content : JSON.stringify(l.content),
-    )
-    .join('\n');
+    .map((l) => parseAgentMessage(l.content))
+    .filter(Boolean)
+    .join('\n\n');
 
   const currentStatus = statusRow?.status ?? 'queued';
 
   return (
     <li data-testid={testid} className="flex flex-col gap-1">
       <div
-        className="self-end max-w-[80%] bg-accent/10 p-2 rounded-md text-[13px]"
+        className="self-end max-w-[80%] bg-accent/10 p-2 rounded-md text-[13px] whitespace-pre-wrap"
         data-testid={`${testid}-user`}
       >
         {userText}
       </div>
       <div
-        className="self-start max-w-[80%] bg-surface-raised border border-border p-2 rounded-md text-[13px]"
+        className="self-start max-w-[80%] bg-surface-raised border border-border p-2 rounded-md text-[13px] whitespace-pre-wrap leading-relaxed"
         data-testid={`${testid}-agent`}
       >
         {agentText ||

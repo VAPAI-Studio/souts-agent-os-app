@@ -23,6 +23,7 @@ import { useRunStatus } from '@/lib/supabase/realtime';
 import { createClient } from '@/lib/supabase/client';
 import { ChatMessageList, type HistoricalChatMessage } from './ChatMessageList';
 import { triggerChatRun, clearConversation } from './_actions';
+import { parseAgentMessage } from '@/lib/chat/parseAgentMessage';
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled', 'expired']);
 
@@ -65,12 +66,7 @@ export function ChatInterface({
             runId: r.id,
             userText:
               ((r.input as Record<string, unknown>)?.prompt as string) ?? '',
-            agentText:
-              typeof r.output === 'string'
-                ? r.output
-                : r.output
-                  ? JSON.stringify(r.output)
-                  : '',
+            agentText: parseAgentMessage(r.output),
             status: r.status,
             createdAt: r.created_at,
           })),
@@ -100,12 +96,7 @@ export function ChatInterface({
       {
         runId: currentRunId,
         userText: currentUserText,
-        agentText:
-          typeof liveStatus.output === 'string'
-            ? liveStatus.output
-            : liveStatus.output
-              ? JSON.stringify(liveStatus.output)
-              : '',
+        agentText: parseAgentMessage(liveStatus.output),
         status: liveStatus.status,
         createdAt:
           (liveStatus.completed_at as string | null) ?? new Date().toISOString(),
