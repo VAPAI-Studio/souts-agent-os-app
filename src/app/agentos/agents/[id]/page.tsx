@@ -4,6 +4,7 @@ import { requireAgentosRole } from '@/lib/supabase/agentos';
 import { createClient } from '@/lib/supabase/server';
 import { AgentActions } from './AgentActions';
 import { AgentTabs, type TabKey } from './AgentTabs';
+import { CapReachedBanner } from './_components/CapReachedBanner';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -41,6 +42,25 @@ export default async function AgentDetailPage({
     .order('started_at', { ascending: false, nullsFirst: false })
     .limit(20);
 
+  // Plan 09-04: determine if this agent is budget-paused. Check the most recent
+  // pause-related audit_log row for this agent. Only flag as budget-paused when
+  // agent.status='paused' AND latest relevant action='agent_auto_paused_budget'.
+  // Correct enum strings: agent_pause / agent_resume / agent_auto_paused_budget (NO -d suffix).
+  const { data: lastPauseLog } = await supabase
+    .schema('agentos')
+    .from('audit_logs')
+    .select('action')
+    .eq('target_table', 'agents')
+    .eq('target_id', id)
+    .in('action', ['agent_pause', 'agent_resume', 'agent_auto_paused_budget'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const isBudgetPaused =
+    agent.status === 'paused' &&
+    lastPauseLog?.action === 'agent_auto_paused_budget';
+
   const isAdmin = claims.app_role === 'admin';
   const isOwner = claims.sub === agent.owner_id;
   const canEdit = isAdmin || isOwner;
@@ -68,6 +88,15 @@ export default async function AgentDetailPage({
 
   return (
     <section className="flex flex-col gap-lg">
+      {/* Plan 09-04: Budget cap banner — renders only when agent was auto-paused due to monthly cap. */}
+      {isBudgetPaused && (
+        <CapReachedBanner
+          agentId={id}
+          monthlyBudgetUsd={(agent as Record<string, unknown>).monthly_budget_usd as number ?? 0}
+          monthlySpentUsd={(agent as Record<string, unknown>).monthly_spent_usd as number ?? 0}
+          monthlyPeriodStart={(agent as Record<string, unknown>).monthly_period_start as string | null ?? null}
+        />
+      )}
       <PageHeader
         title={<span data-testid="agent-name">{agent.name}</span>}
         meta={

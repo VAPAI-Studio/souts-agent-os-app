@@ -37,6 +37,8 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { label: 'Costs', href: '/agentos/costs', testId: 'nav-costs' },
   // Plan 06-05: Dashboard home page surfacing the COO daily-report briefing card.
   { label: 'Dashboard', href: '/agentos/dashboard', testId: 'nav-dashboard' },
+  // Plan 09-04: Admin-only Settings page for org-wide configuration (daily threshold etc.).
+  { label: 'Settings', href: '/agentos/settings', testId: 'nav-settings', adminOnly: true },
 ];
 
 interface SidebarNavProps {
