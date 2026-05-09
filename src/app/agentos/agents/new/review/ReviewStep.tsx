@@ -107,6 +107,22 @@ export function ReviewStep({
     router.push(`/agentos/agents/${result.data.id}`);
   }
 
+  async function handleSkipAndActivate() {
+    if (gateBlocked) return;
+    const ok = window.confirm(
+      'Activate without running a test?\n\nWe recommend testing the agent at least once before activation so you see what it actually produces. Continue anyway?',
+    );
+    if (!ok) return;
+    setActivating(true);
+    const result = await activateDraft(draft.id);
+    setActivating(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    router.push(`/agentos/agents/${result.data.id}`);
+  }
+
   return (
     <div className="flex flex-col gap-6" data-testid="wizard-step-8">
       <McpConnectionGate
@@ -158,12 +174,28 @@ export function ReviewStep({
           </a>
         </Button>
         {!gateBlocked && !lastTestRunCompleted && (
-          <p
-            data-testid="activate-needs-test-hint"
-            className="text-xs text-muted-foreground self-center"
-          >
-            Run a test first — Activate enables once a test run completes.
-          </p>
+          <>
+            <p
+              data-testid="activate-needs-test-hint"
+              className="text-[12px] text-text-muted self-center"
+            >
+              Run a test first, or skip if you&rsquo;re sure.
+            </p>
+            <Button
+              data-testid="skip-and-activate-btn"
+              intent="ghost"
+              size="md"
+              onClick={handleSkipAndActivate}
+              disabled={gateBlocked || activating}
+              title={
+                gateBlocked
+                  ? 'Connect missing MCP servers before activating'
+                  : 'Activate without running a test (with confirmation)'
+              }
+            >
+              Skip test &amp; activate
+            </Button>
+          </>
         )}
         <Button
           data-testid="activate-btn"
