@@ -1,4 +1,9 @@
+import Link from 'next/link';
 import { login } from './actions';
+import { AuthShell } from '@/components/auth/AuthShell';
+import { FormField } from '@/components/ui/FormField';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
 
 export default async function LoginPage({
   searchParams,
@@ -6,29 +11,69 @@ export default async function LoginPage({
   searchParams: Promise<{ redirect?: string; error?: string }>;
 }) {
   const params = await searchParams;
+  const error = params.error ? decodeURIComponent(params.error) : null;
+
   return (
-    <main style={{ maxWidth: 400, margin: '4rem auto', padding: '0 1rem' }}>
-      <h1>Sign in</h1>
-      <form action={login} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+    <AuthShell
+      title="Sign in"
+      footer={
+        <>
+          No account?{' '}
+          <Link
+            href="/signup"
+            className="text-accent hover:underline underline-offset-2"
+          >
+            Sign up
+          </Link>
+        </>
+      }
+    >
+      <form action={login} className="flex flex-col gap-md">
         <input type="hidden" name="redirect" value={params.redirect ?? '/agentos'} />
-        <label>
-          Email
-          <input id="email" name="email" type="email" required autoComplete="email" />
-        </label>
-        <label>
-          Password
-          <input id="password" name="password" type="password" required autoComplete="current-password" />
-        </label>
-        <button type="submit" data-testid="login-submit">Sign in</button>
+
+        <FormField label="Email" htmlFor="email">
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            required
+            autoComplete="email"
+            autoFocus
+            error={!!error}
+          />
+        </FormField>
+
+        <FormField label="Password" htmlFor="password">
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            required
+            autoComplete="current-password"
+            error={!!error}
+          />
+        </FormField>
+
+        <Button
+          type="submit"
+          intent="primary"
+          size="md"
+          className="mt-xs"
+          data-testid="login-submit"
+        >
+          Sign in
+        </Button>
+
+        {error && (
+          <p
+            data-testid="login-error"
+            role="alert"
+            className="text-[12px] text-destructive font-sans"
+          >
+            {error}
+          </p>
+        )}
       </form>
-      {params.error && (
-        <p data-testid="login-error" style={{ color: 'red', marginTop: '1rem' }}>
-          {decodeURIComponent(params.error)}
-        </p>
-      )}
-      <p style={{ marginTop: '2rem' }}>
-        No account? <a href="/signup">Sign up</a>
-      </p>
-    </main>
+    </AuthShell>
   );
 }
