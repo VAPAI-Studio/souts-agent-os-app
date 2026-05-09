@@ -14,7 +14,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, cleanup } from '@testing-library/react';
-import type { ActivityRow } from '../app/agentos/dashboard/_data/home';
+import type { ActivityRow } from '../app/agentos/dashboard/_data/types';
 
 // ── Controllable mock channel ─────────────────────────────────────────────────
 

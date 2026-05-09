@@ -78,7 +78,12 @@ export function CostByAgentChart({ data }: { data: DailyAgentCost[] }) {
             tickFormatter={(v: number) => `$${v.toFixed(2)}`}
             width={60}
           />
-          <Tooltip formatter={(v: number) => `$${v.toFixed(4)}`} />
+          <Tooltip
+            formatter={(v) => {
+              const n = typeof v === 'number' ? v : Number(v ?? 0);
+              return `$${n.toFixed(4)}`;
+            }}
+          />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           {agentKeys.map((agentId, i) => (
             <Bar

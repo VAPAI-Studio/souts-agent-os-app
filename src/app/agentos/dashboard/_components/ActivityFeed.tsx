@@ -15,8 +15,9 @@
  *   - `fetchActivityFeed` in _data/home.ts uses server-only createClient — cannot
  *     be called from this client component.
  *   - `clientFetchActivityFeed` (exported from this file) mirrors the same query
- *     using the browser Supabase client. It imports ACTIVITY_ACTIONS from _data/home.ts
- *     so server and client enum strings share a single source of truth.
+ *     using the browser Supabase client. It imports ACTIVITY_ACTIONS from _data/types
+ *     (a server-and-client-safe module) so server and client share a single source
+ *     of truth without dragging next/headers into the browser bundle.
  *
  * Design discipline (Phase 03.1):
  *   - No inline style attributes
@@ -25,8 +26,8 @@
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { ACTIVITY_ACTIONS } from '../_data/home';
-import type { ActivityRow as ActivityRowType } from '../_data/home';
+import { ACTIVITY_ACTIONS } from '../_data/types';
+import type { ActivityRow as ActivityRowType } from '../_data/types';
 import { ActivityRow } from './ActivityRow';
 import { Card, CardBody } from '@/components/ui/Card';
 
@@ -38,7 +39,7 @@ const DEBOUNCE_MS = 5000;
  * Exported so tests can spy on it via the `_fetchFn` prop pattern.
  *
  * Mirrors fetchActivityFeed from _data/home.ts but uses the BROWSER supabase client.
- * Imports ACTIVITY_ACTIONS from _data/home.ts — server and client agree by construction.
+ * Imports ACTIVITY_ACTIONS from _data/types — server and client agree by construction.
  */
 export async function clientFetchActivityFeed(
   limit = 20,

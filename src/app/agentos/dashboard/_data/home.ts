@@ -17,34 +17,14 @@
  */
 import { createClient } from '@/lib/supabase/server';
 
-// ── Shared constant — export for client re-use in ActivityFeed.tsx ────────────
-
-export const ACTIVITY_ACTIONS = [
-  'agent_run_completed',      // Phase 9 (added by 09-01 migration)
-  'agent_run_failed',         // Phase 9 (added by 09-01 migration)
-  'approval_approve',         // existing — NO -d suffix
-  'approval_reject',          // existing — NO -d suffix
-  'approval_edit',            // existing — NO -d suffix
-  'agent_pause',              // existing — NO -d suffix
-  'agent_resume',             // existing — NO -d suffix
-  'agent_auto_paused_budget', // Phase 9 (added by 09-01 migration)
-] as const;
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface ActivityRow {
-  id: string;
-  category: 'run' | 'approval' | 'agent';
-  action: string;
-  agent_id: string | null;
-  agent_name: string | null;
-  run_id: string | null;
-  approval_id: string | null;
-  cost_usd: number | null;
-  status: string | null;
-  tool_name: string | null;
-  created_at: string;
-}
+// ── Shared constants + types ──────────────────────────────────────────────────
+// Pure constants/types live in ./types so client components can import them
+// without dragging next/headers (via @/lib/supabase/server) into the browser
+// bundle. Re-export here for back-compat with server-side callers that import
+// from this file.
+import { ACTIVITY_ACTIONS, type ActivityRow } from './types';
+export { ACTIVITY_ACTIONS };
+export type { ActivityRow };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

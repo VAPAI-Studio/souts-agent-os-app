@@ -30,7 +30,12 @@ export function CostByModelChart({ data }: { data: ModelCost[] }) {
             tick={{ fontSize: 11 }}
             width={140}
           />
-          <Tooltip formatter={(v: number) => `$${v.toFixed(4)}`} />
+          <Tooltip
+            formatter={(v) => {
+              const n = typeof v === 'number' ? v : Number(v ?? 0);
+              return `$${n.toFixed(4)}`;
+            }}
+          />
           <Bar
             dataKey="cost"
             name="Cost (USD)"

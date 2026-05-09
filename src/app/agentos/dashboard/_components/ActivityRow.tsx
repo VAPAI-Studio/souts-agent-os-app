@@ -14,7 +14,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/Badge';
 import { formatRelativeTime } from '@/lib/utils/format';
-import type { ActivityRow as ActivityRowType } from '../_data/home';
+import type { ActivityRow as ActivityRowType } from '../_data/types';
 
 const categoryTone = {
   run: 'neutral',
