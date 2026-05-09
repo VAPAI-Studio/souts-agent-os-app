@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { getAgentosClaims } from '@/lib/supabase/agentos';
+import { createClient } from '@/lib/supabase/server';
 import { SidebarNav } from './_nav/SidebarNav';
+import { GlobalErrorBanner } from './_components/GlobalErrorBanner';
 
 /**
  * AgentOS layout — Server Component.
@@ -34,18 +36,40 @@ export default async function AgentosLayout({
     );
   }
 
+  // Admin-only: count how many services are currently 'down' for the GlobalErrorBanner.
+  // Fail-soft: any DB error yields downCount=0 (never breaks the layout).
+  let downCount = 0;
+  if (claims.app_role === 'admin') {
+    try {
+      const supabase = await createClient();
+      const { count } = await supabase
+        .schema('agentos')
+        .from('system_health_state')
+        .select('*', { count: 'exact', head: true })
+        .eq('last_state', 'down');
+      downCount = count ?? 0;
+    } catch {
+      downCount = 0;
+    }
+  }
+
   return (
     <div
       data-app-role={claims.app_role}
-      className="flex h-screen bg-surface text-text"
+      className="flex flex-col h-screen bg-surface text-text"
     >
-      <aside
-        aria-label="agentos sidebar"
-        className="w-[220px] shrink-0 flex flex-col border-r border-border bg-surface-raised"
-      >
-        <SidebarNav email={claims.email} role={claims.app_role} />
-      </aside>
-      <main className="flex-1 overflow-y-auto p-xl">{children}</main>
+      {claims.app_role === 'admin' && downCount > 0 && (
+        <GlobalErrorBanner initialDownCount={downCount} />
+      )}
+      <div className="flex flex-1 overflow-hidden">
+        <aside
+          aria-label="agentos sidebar"
+          className="w-[220px] shrink-0 flex flex-col border-r border-border bg-surface-raised"
+        >
+          <SidebarNav email={claims.email} role={claims.app_role} />
+        </aside>
+        <main className="flex-1 overflow-y-auto p-xl">{children}</main>
+      </div>
     </div>
   );
 }
