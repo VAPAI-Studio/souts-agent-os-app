@@ -1,50 +1,60 @@
 'use client';
 /**
- * Step 4: Context Sources — sensitive_tools and denylist_globs arrays.
- * Each is edited as one item per line in a textarea.
- * Plan 08-02 / Phase 8
+ * Step 4: Context Sources
+ *
+ * Defines what knowledge the agent has access to when it runs:
+ *   - project_id  → which project's vault scope is mounted at /workspace/vault/
+ *                    at runtime (Phase 4 memory layer). Determines what files
+ *                    the agent can read by default.
+ *   - context_notes → freeform "what should this agent know about the
+ *                    company / domain?" prepended to the system prompt at
+ *                    runtime. Lives in config.context_notes.
+ *
+ * Both optional — agents can ship without project assignment (agent-only vault
+ * scope) or without notes. Step is skip-able.
+ *
+ * Plan 08-02 / Phase 8 — rewritten 2026-05-09 to be actual context sources
+ * (the original step was misnamed; it held sensitive_tools + denylist_globs
+ * which now live on Step 5 Tools/Permissions).
  */
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { FormField } from '@/components/ui/FormField';
 import { Textarea } from '@/components/ui/Textarea';
+import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { patchDraft } from '../../_actions';
 
 interface ContextSourcesStepProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   draft: Record<string, any>;
+  projects: Array<{ id: string; name: string }>;
 }
 
-function arrayToLines(arr: unknown): string {
-  if (!Array.isArray(arr)) return '';
-  return arr.join('\n');
-}
-
-function linesToArray(text: string): string[] {
-  return text
-    .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-export function ContextSourcesStep({ draft }: ContextSourcesStepProps) {
+export function ContextSourcesStep({ draft, projects }: ContextSourcesStepProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const initialNotes =
+    (draft.config as Record<string, unknown> | null)?.context_notes ?? '';
+  const initialProjectId = (draft.project_id as string | null) ?? '';
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     const fd = new FormData(e.currentTarget);
-    const sensitiveTools = linesToArray(String(fd.get('sensitive_tools') || ''));
-    const denylistGlobs = linesToArray(String(fd.get('denylist_globs') || ''));
+    const projectId = String(fd.get('project_id') || '').trim();
+    const contextNotes = String(fd.get('context_notes') || '').trim();
 
     const result = await patchDraft(draft.id as string, {
-      sensitive_tools: sensitiveTools,
-      denylist_globs: denylistGlobs,
+      project_id: projectId === '' ? null : projectId,
+      config: {
+        ...((draft.config as Record<string, unknown>) || {}),
+        context_notes: contextNotes,
+      },
     });
     setSubmitting(false);
     if (!result.ok) {
@@ -57,36 +67,42 @@ export function ContextSourcesStep({ draft }: ContextSourcesStepProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4 max-w-[520px]"
+      className="flex flex-col gap-md max-w-[520px]"
+      data-testid="wizard-step-4"
     >
       <FormField
-        label="Sensitive tools"
-        htmlFor="sensitive_tools"
-        hint="Tool names (one per line) that require extra caution. These are logged with additional detail."
+        label="Project"
+        htmlFor="project_id"
+        hint="Determines which project's vault files the agent can read at runtime. Leave blank for agent-only scope."
       >
-        <Textarea
-          id="sensitive_tools"
-          name="sensitive_tools"
-          defaultValue={arrayToLines(draft.sensitive_tools)}
-          rows={4}
-          placeholder="e.g. Bash&#10;Python&#10;mcp__slack__slack_send_message"
-          data-testid="field-sensitive_tools"
+        <Select
+          id="project_id"
+          name="project_id"
+          defaultValue={initialProjectId}
+          data-testid="field-project_id"
           error={!!error}
-        />
+        >
+          <option value="">— No project (agent-only scope) —</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </Select>
       </FormField>
 
       <FormField
-        label="Denylist globs"
-        htmlFor="denylist_globs"
-        hint="File path patterns (one per line) the agent must never read or write."
+        label="Context notes"
+        htmlFor="context_notes"
+        hint="Optional. Freeform context the agent should always know about — e.g. company name, key people, voice/tone, recurring constraints. Prepended to the system prompt at runtime."
       >
         <Textarea
-          id="denylist_globs"
-          name="denylist_globs"
-          defaultValue={arrayToLines(draft.denylist_globs)}
-          rows={4}
-          placeholder="e.g. **/.env&#10;**/secrets/**&#10;**/*.key"
-          data-testid="field-denylist_globs"
+          id="context_notes"
+          name="context_notes"
+          defaultValue={String(initialNotes)}
+          rows={6}
+          placeholder="e.g. The company is VAPAI Studio. Always refer to clients as 'partners'. Never mention pricing in public posts unless explicitly approved. Slack workspace is vapaistudio.slack.com."
+          data-testid="field-context_notes"
           error={!!error}
         />
       </FormField>
@@ -97,11 +113,11 @@ export function ContextSourcesStep({ draft }: ContextSourcesStepProps) {
         </p>
       )}
 
-      <div className="flex items-center gap-3 pt-2">
+      <div className="flex items-center gap-3 pt-xs">
         <Link
           href={`/agentos/agents/new/instructions?draft=${draft.id}`}
           data-testid="wizard-back-btn"
-          className="text-sm text-muted-foreground hover:text-foreground"
+          className="text-[13px] text-text-muted hover:text-text"
         >
           Back
         </Link>

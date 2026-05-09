@@ -461,6 +461,8 @@ interface DraftPatch {
   budget_cap_usd?: number;
   /** Plan 09-04: cumulative monthly spend cap. NULL = no cap. */
   monthly_budget_usd?: number | null;
+  /** Step 4 (rewritten 2026-05-09): project FK that scopes vault mount at runtime. NULL = agent-only scope. */
+  project_id?: string | null;
   sensitive_tools?: string[];
   denylist_globs?: string[];
   required_mcp_servers?: string[];
@@ -525,7 +527,8 @@ export async function patchDraft(
   const update: Record<string, unknown> = {};
   const patchableFields = [
     'name', 'department', 'system_prompt', 'autonomy_level', 'model_tier',
-    'max_turns', 'budget_cap_usd', 'monthly_budget_usd', 'sensitive_tools', 'denylist_globs',
+    'max_turns', 'budget_cap_usd', 'monthly_budget_usd', 'project_id',
+    'sensitive_tools', 'denylist_globs',
     'required_mcp_servers', 'schedule_cron', 'schedule_timezone',
     'schedule_enabled', 'config',
   ] as const;
