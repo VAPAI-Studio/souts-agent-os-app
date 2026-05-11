@@ -23,7 +23,10 @@ import { useRunStatus } from '@/lib/supabase/realtime';
 import { createClient } from '@/lib/supabase/client';
 import { ChatMessageList, type HistoricalChatMessage } from './ChatMessageList';
 import { triggerChatRun, clearConversation } from './_actions';
-import { parseAgentMessageParts } from '@/lib/chat/parseAgentMessage';
+import {
+  parseAgentMessageParts,
+  type MessagePart,
+} from '@/lib/chat/parseAgentMessage';
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled', 'expired']);
 
@@ -47,6 +50,10 @@ export function ChatInterface({
   const [sending, setSending] = useState(false);
 
   // On mount: load historical chat runs for this user+agent pair.
+  // We hydrate both agent_runs.output (final text envelope) AND assistant
+  // entries in run_logs (which carry tool_use blocks). Output alone is text-
+  // only on completed chat runs — without run_logs the tool-call chips would
+  // be invisible after reload.
   useEffect(() => {
     const sb = createClient();
     (async () => {
@@ -60,19 +67,44 @@ export function ChatInterface({
         .order('created_at', { ascending: true })
         .limit(50);
 
-      if (runs && runs.length > 0) {
-        setHistoricalMessages(
-          runs.map((r) => ({
+      if (!runs || runs.length === 0) return;
+
+      // Batch-fetch assistant logs for all loaded runs in one round-trip.
+      const runIds = runs.map((r) => r.id);
+      const { data: logs } = await sb
+        .schema('agentos')
+        .from('run_logs')
+        .select('run_id, content, sequence_number, message_type')
+        .in('run_id', runIds)
+        .eq('message_type', 'assistant')
+        .order('sequence_number', { ascending: true });
+
+      const partsByRun = new Map<string, MessagePart[]>();
+      for (const log of logs ?? []) {
+        const prev = partsByRun.get(log.run_id) ?? [];
+        prev.push(...parseAgentMessageParts(log.content));
+        partsByRun.set(log.run_id, prev);
+      }
+
+      setHistoricalMessages(
+        runs.map((r) => {
+          // Prefer reconstructed parts from run_logs (preserves tool_use chips).
+          // Fall back to output (e.g. legacy rows pre-log retention) when no
+          // assistant logs are present.
+          const logParts = partsByRun.get(r.id) ?? [];
+          const agentParts =
+            logParts.length > 0 ? logParts : parseAgentMessageParts(r.output);
+          return {
             runId: r.id,
             userText:
               ((r.input as Record<string, unknown>)?.prompt as string) ?? '',
-            agentParts: parseAgentMessageParts(r.output),
+            agentParts,
             status: r.status,
             createdAt: r.created_at,
-          })),
-        );
-        setLatestRunIdForThread(runs[runs.length - 1].id);
-      }
+          };
+        }),
+      );
+      setLatestRunIdForThread(runs[runs.length - 1].id);
     })();
   }, [agentId, userId]);
 
@@ -91,20 +123,46 @@ export function ChatInterface({
     if (!currentRunId || !currentUserText) return;
     if (!liveStatus || !TERMINAL_STATUSES.has(liveStatus.status)) return;
 
-    setHistoricalMessages((prev) => [
-      ...prev,
-      {
-        runId: currentRunId,
-        userText: currentUserText,
-        agentParts: parseAgentMessageParts(liveStatus.output),
-        status: liveStatus.status,
-        createdAt:
-          (liveStatus.completed_at as string | null) ?? new Date().toISOString(),
-      },
-    ]);
-    setLatestRunIdForThread(currentRunId);
-    setCurrentRunId(null);
-    setCurrentUserText(null);
+    // Snapshot run_logs so the static bubble keeps the tool_use chips the
+    // LiveChatMessage was already rendering. Falls back to liveStatus.output
+    // when the logs query is empty (older agents, log-retention truncation).
+    const snapshotRunId = currentRunId;
+    const snapshotUserText = currentUserText;
+    const snapshotStatus = liveStatus.status;
+    const snapshotCompletedAt =
+      (liveStatus.completed_at as string | null) ?? new Date().toISOString();
+    const snapshotOutput = liveStatus.output;
+
+    (async () => {
+      const sb = createClient();
+      const { data: logs } = await sb
+        .schema('agentos')
+        .from('run_logs')
+        .select('content, sequence_number, message_type')
+        .eq('run_id', snapshotRunId)
+        .eq('message_type', 'assistant')
+        .order('sequence_number', { ascending: true });
+
+      const parts: MessagePart[] = (logs ?? []).flatMap((l) =>
+        parseAgentMessageParts(l.content),
+      );
+      const agentParts =
+        parts.length > 0 ? parts : parseAgentMessageParts(snapshotOutput);
+
+      setHistoricalMessages((prev) => [
+        ...prev,
+        {
+          runId: snapshotRunId,
+          userText: snapshotUserText,
+          agentParts,
+          status: snapshotStatus,
+          createdAt: snapshotCompletedAt,
+        },
+      ]);
+      setLatestRunIdForThread(snapshotRunId);
+      setCurrentRunId(null);
+      setCurrentUserText(null);
+    })();
   }, [liveStatus?.status, currentRunId, currentUserText]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSend() {
