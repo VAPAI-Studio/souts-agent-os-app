@@ -135,12 +135,15 @@ function AgentBubble({
   }
 
   return (
-    <div className="flex flex-col gap-2" data-testid={testid}>
+    <div
+      className="flex flex-col items-start gap-2 self-start w-full"
+      data-testid={testid}
+    >
       {parts.map((p, i) =>
         p.kind === 'text' ? (
           <div
             key={i}
-            className="self-start max-w-[80%] bg-surface-raised border border-border px-3 py-2 rounded-lg text-[13px] leading-relaxed"
+            className="max-w-[80%] bg-surface-raised border border-border px-3 py-2 rounded-lg text-[13px] leading-relaxed"
             data-color-mode="light"
           >
             <MarkdownPreview
