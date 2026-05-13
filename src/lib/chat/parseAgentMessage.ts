@@ -31,10 +31,15 @@ type Block = {
   text?: unknown;
   thinking?: unknown;
   repr?: unknown;
-  // tool_use shape
+  // tool_use shape — the Modal runner persists with tool_-prefixed keys
+  // (tool_name / tool_input / tool_use_id) which differ from the bare
+  // Claude SDK shape (name / input / id). Accept both.
   name?: unknown;
   input?: unknown;
   id?: unknown;
+  tool_name?: unknown;
+  tool_input?: unknown;
+  tool_use_id?: unknown;
 };
 
 type Envelope = {
@@ -49,13 +54,18 @@ function extractPartsFromBlocks(blocks: Block[] | undefined): MessagePart[] {
     if (!b || typeof b !== 'object') continue;
     if (b.type === 'text' && typeof b.text === 'string') {
       parts.push({ kind: 'text', text: b.text });
-    } else if (b.type === 'tool_use' && typeof b.name === 'string') {
-      parts.push({
-        kind: 'tool_use',
-        name: b.name,
-        input: b.input,
-        id: typeof b.id === 'string' ? b.id : undefined,
-      });
+    } else if (b.type === 'tool_use') {
+      const name = typeof b.name === 'string' ? b.name : b.tool_name;
+      if (typeof name === 'string') {
+        const input = b.input !== undefined ? b.input : b.tool_input;
+        const idRaw = typeof b.id === 'string' ? b.id : b.tool_use_id;
+        parts.push({
+          kind: 'tool_use',
+          name,
+          input,
+          id: typeof idRaw === 'string' ? idRaw : undefined,
+        });
+      }
     }
     // Drop thinking / unknown / tool_result blocks.
   }
