@@ -49,6 +49,10 @@ export interface NotionTokenResponse {
   workspace_name?: string;
   workspace_icon?: string;
   bot_id?: string;
+  owner?: {
+    type?: string;
+    user?: { id?: string };
+  };
 }
 
 const NOTION_TOKEN_URL = "https://mcp.notion.com/token";

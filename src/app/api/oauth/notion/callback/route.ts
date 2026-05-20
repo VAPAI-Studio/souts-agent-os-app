@@ -133,11 +133,11 @@ export async function GET(request: Request): Promise<Response> {
     ? encryptToken(tokenResp.refresh_token)
     : undefined;
 
-  // expires_at as epoch ms (if expires_in is present)
-  const expiresAt =
-    typeof tokenResp.expires_in === "number"
-      ? Date.now() + tokenResp.expires_in * 1000
-      : undefined;
+  // OAUTH-01 (Phase 12): Notion does NOT return expires_in. TTL is ~3600s empirically
+  // (Notion MCP Server GitHub issue #225). Hardcode the constant — the prior
+  // conditional was dead code for Notion.
+  const NOTION_TOKEN_TTL_MS = 3600 * 1000;
+  const expiresAt = Date.now() + NOTION_TOKEN_TTL_MS;
 
   // --- Step 6: write tool_connections row ---
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -160,19 +160,23 @@ export async function GET(request: Request): Promise<Response> {
     .eq("integration", "notion")
     .eq("status", "connected");
 
+  // OAUTH-01 (Phase 12): persist owner_user_id so the live MCP can resolve the
+  // installer identity. Tokens are now-or-never; the runner needs every piece of
+  // metadata available at OAuth time.
+  const ownerUserId = tokenResp.owner?.user?.id ?? null;
+
   const metadata: Record<string, unknown> = {
     access_token_ciphertext: accessTokenCiphertext,
     workspace_id: tokenResp.workspace_id ?? null,
     workspace_name: tokenResp.workspace_name ?? null,
     workspace_icon: tokenResp.workspace_icon ?? null,
     bot_id: tokenResp.bot_id ?? null,
+    owner_user_id: ownerUserId,
     scope: tokenResp.scope ?? null,
+    expires_at: expiresAt,
   };
   if (refreshTokenCiphertext) {
     metadata.refresh_token_ciphertext = refreshTokenCiphertext;
-  }
-  if (expiresAt !== undefined) {
-    metadata.expires_at = expiresAt;
   }
 
   const { data: connectionRow, error: insertErr } = await sb

@@ -206,6 +206,7 @@ export async function GET(request: Request): Promise<Response> {
         refresh_token_ciphertext: refreshTokenCiphertext,
         expires_at: expiresAt,
         scopes: grantedScopes,
+        scope: tokenResp.scope ?? null,
         token_type: tokenResp.token_type ?? "Bearer",
       },
     })
