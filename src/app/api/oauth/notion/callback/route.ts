@@ -33,7 +33,7 @@ import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@supabase/supabase-js";
 
 import { encryptToken } from "@/lib/encryption";
-import { exchangeNotionCode } from "@/lib/notion_oauth";
+import { exchangeNotionCode, fetchNotionWorkspaceMetadata } from "@/lib/notion_oauth";
 import { createClient } from "@/lib/supabase/server";
 
 const STATE_COOKIE = "notion_oauth_state";
@@ -160,17 +160,24 @@ export async function GET(request: Request): Promise<Response> {
     .eq("integration", "notion")
     .eq("status", "connected");
 
-  // OAUTH-01 (Phase 12): persist owner_user_id so the live MCP can resolve the
-  // installer identity. Tokens are now-or-never; the runner needs every piece of
-  // metadata available at OAuth time.
-  const ownerUserId = tokenResp.owner?.user?.id ?? null;
+  // OAUTH-01 (Phase 12): mcp.notion.com/token returns a slim OAuth2 response
+  // (no workspace_id / workspace_name / bot_id / owner). Fetch them via the
+  // classic /v1/users/me endpoint as a follow-up. Returns null on any failure,
+  // in which case the metadata fields stay null — OAuth still succeeds.
+  const userInfo = await fetchNotionWorkspaceMetadata(tokenResp.access_token);
+
+  const workspaceId = tokenResp.workspace_id ?? userInfo?.bot?.workspace_id ?? null;
+  const workspaceName = tokenResp.workspace_name ?? userInfo?.bot?.workspace_name ?? null;
+  const botId = tokenResp.bot_id ?? userInfo?.bot?.id ?? userInfo?.id ?? null;
+  const ownerUserId =
+    tokenResp.owner?.user?.id ?? userInfo?.bot?.owner?.user?.id ?? null;
 
   const metadata: Record<string, unknown> = {
     access_token_ciphertext: accessTokenCiphertext,
-    workspace_id: tokenResp.workspace_id ?? null,
-    workspace_name: tokenResp.workspace_name ?? null,
+    workspace_id: workspaceId,
+    workspace_name: workspaceName,
     workspace_icon: tokenResp.workspace_icon ?? null,
-    bot_id: tokenResp.bot_id ?? null,
+    bot_id: botId,
     owner_user_id: ownerUserId,
     scope: tokenResp.scope ?? null,
     expires_at: expiresAt,
@@ -185,7 +192,7 @@ export async function GET(request: Request): Promise<Response> {
     .insert({
       integration: "notion",
       connection_method: "anthropic_hosted",
-      external_ref: tokenResp.workspace_id ?? null,
+      external_ref: workspaceId,
       status: "connected",
       connected_by: userId,
       metadata,
@@ -211,8 +218,8 @@ export async function GET(request: Request): Promise<Response> {
       before: null,
       after: {
         integration: "notion",
-        workspace_id: tokenResp.workspace_id ?? null,
-        workspace_name: tokenResp.workspace_name ?? null,
+        workspace_id: workspaceId,
+        workspace_name: workspaceName,
       },
     });
 

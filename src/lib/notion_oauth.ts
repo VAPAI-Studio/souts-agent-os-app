@@ -55,6 +55,28 @@ export interface NotionTokenResponse {
   };
 }
 
+/**
+ * What the classic Notion API's /v1/users/me endpoint returns for a bot token.
+ * Called as a follow-up after mcp.notion.com/token exchange to populate the
+ * workspace metadata fields the MCP OAuth response omits.
+ */
+export interface NotionUsersMeBotResponse {
+  object: "user";
+  id: string;
+  type: "bot";
+  name?: string;
+  avatar_url?: string | null;
+  bot: {
+    id?: string;
+    owner?: {
+      type: "user" | "workspace";
+      user?: { id?: string };
+    };
+    workspace_id?: string;
+    workspace_name?: string;
+  };
+}
+
 const NOTION_TOKEN_URL = "https://mcp.notion.com/token";
 
 /**
@@ -126,4 +148,40 @@ export async function refreshNotionToken(refreshToken: string): Promise<NotionTo
     throw new Error(`Notion token refresh failed: ${r.status} ${await r.text()}`);
   }
   return (await r.json()) as NotionTokenResponse;
+}
+
+/**
+ * OAUTH-01 (Phase 12) — fetch workspace metadata for a freshly-issued Notion
+ * MCP OAuth token.
+ *
+ * The mcp.notion.com/token endpoint returns a slim OAuth2 response (no
+ * workspace_id / workspace_name / bot_id / owner). The classic Notion API's
+ * /v1/users/me endpoint accepts the same bearer token and returns those fields
+ * when called for a bot user, so we call it as a follow-up to populate them.
+ *
+ * Returns null on any failure (network, 4xx/5xx, unexpected shape) — the
+ * caller decides whether to proceed with null fields or fail the OAuth.
+ */
+export async function fetchNotionWorkspaceMetadata(
+  accessToken: string,
+): Promise<NotionUsersMeBotResponse | null> {
+  try {
+    const r = await fetch("https://api.notion.com/v1/users/me", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Notion-Version": "2022-06-28",
+      },
+    });
+    if (!r.ok) {
+      return null;
+    }
+    const body = (await r.json()) as NotionUsersMeBotResponse;
+    if (body?.type !== "bot") {
+      return null;
+    }
+    return body;
+  } catch {
+    return null;
+  }
 }
