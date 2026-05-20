@@ -23,19 +23,24 @@ interface IntegrationCardProps {
  *   - drill-in panel below card when 'Tools' is clicked
  */
 function buildOAuthInitUrl(integrationKey: string): string {
-  // For MVP, use direct URLs. Each provider's full client_id is exposed via
-  // a public env var; the redirect_uri is derived from window.location.origin.
-  // Falls back to '#' when client_id is unset (development without OAuth).
+  // All integrations route through their /api/oauth/{provider}/start handler
+  // so CSRF state cookies (and PKCE verifier for Notion) are set server-side
+  // before the redirect to the provider.
   if (integrationKey === 'slack') {
-    // Goes through /api/oauth/slack/start so the CSRF state cookie is set
-    // before the redirect to Slack — the callback verifies cookie === state.
     return '/api/oauth/slack/start';
   }
-  if (integrationKey === 'google_calendar') {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!clientId) return '#';
-    const scope = 'https://www.googleapis.com/auth/calendar';
-    return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+  if (integrationKey === 'notion') {
+    return '/api/oauth/notion/start';
+  }
+  if (
+    integrationKey === 'google_calendar' ||
+    integrationKey === 'google_drive' ||
+    integrationKey === 'gmail'
+  ) {
+    // /api/oauth/google/start reads ?integration= and sets the
+    // google_oauth_integration cookie so the shared callback knows which
+    // tool_connections row to upsert.
+    return `/api/oauth/google/start?integration=${encodeURIComponent(integrationKey)}`;
   }
   return '#';
 }
