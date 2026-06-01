@@ -2,7 +2,7 @@
  * Phase 7 / Plan 07-01 — Google OAuth start endpoint.
  *
  * Reads ?integration= query param to pick scope set:
- *   integration=google_calendar  → calendar full scope (read + write)
+ *   integration=google_calendar  → calendar.events.readonly (least-privilege; POLISH-05)
  *   integration=gmail            → gmail.modify (read + drafts; Plan 07-02 Branch B — no send tool in hosted MCP)
  *   integration=google_drive     → drive scope (Plan 07-03 reuses)
  *
@@ -26,7 +26,7 @@ const INTEGRATION_COOKIE = "google_oauth_integration";
 const GOOGLE_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 
 const SCOPES_BY_INTEGRATION: Record<string, string[]> = {
-  google_calendar: ["https://www.googleapis.com/auth/calendar"],
+  google_calendar: ["https://www.googleapis.com/auth/calendar.events.readonly"],
   gmail: ["https://www.googleapis.com/auth/gmail.modify"],
   google_drive: ["https://www.googleapis.com/auth/drive"],
 };
