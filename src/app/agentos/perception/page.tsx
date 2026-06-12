@@ -90,9 +90,42 @@ async function fetchPerception(): Promise<PerceptionData | null> {
   }
 }
 
+interface SnapshotRow {
+  source: string;
+  computed_at: string;
+  max_staleness_minutes: number | null;
+  cost_usd: number | null;
+  summary: unknown;
+}
+
+// Read the latest 'current' snapshot per source directly from Supabase (RLS:
+// source_snapshots_select_any_role allows any agentos role to SELECT). No
+// orchestrator round-trip needed — this is raw capture metadata, not the
+// synthesized perception view.
+async function fetchSnapshots(): Promise<SnapshotRow[]> {
+  const sb = await createClient();
+  const { data } = await sb
+    .schema('agentos')
+    .from('source_snapshots')
+    .select('source, computed_at, max_staleness_minutes, cost_usd, summary')
+    .eq('key', 'current')
+    .order('computed_at', { ascending: false });
+  return (data ?? []) as SnapshotRow[];
+}
+
+function freshness(computedAt: string, maxStale: number | null): {
+  label: string;
+  fresh: boolean;
+  minsAgo: number;
+} {
+  const minsAgo = Math.round((Date.now() - new Date(computedAt).getTime()) / 60000);
+  const fresh = maxStale != null && minsAgo <= maxStale;
+  return { label: fresh ? 'fresh' : 'stale', fresh, minsAgo };
+}
+
 export default async function PerceptionPage() {
   await requireAdmin('/agentos/perception');
-  const data = await fetchPerception();
+  const [data, snapshots] = await Promise.all([fetchPerception(), fetchSnapshots()]);
 
   const coverageEntries = data ? Object.entries(data.coverage.sources) : [];
 
@@ -107,6 +140,53 @@ export default async function PerceptionPage() {
           </span>
         }
       />
+
+      {/* SOURCE SNAPSHOTS — raw per-source capture state (pre-cómputo). Shows
+          which sources have a fresh snapshot the COO can read vs which fall back
+          to a live read. Read directly from Supabase (source_snapshots). */}
+      <section className="flex flex-col gap-sm">
+        <h2 className="text-[13px] font-medium text-text-muted uppercase tracking-wider">
+          Source Snapshots
+        </h2>
+        {snapshots.length === 0 ? (
+          <p className="text-[14px] text-text-muted">
+            No source snapshots yet. They populate as each source&apos;s cron runs.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-sm">
+            {snapshots.map((s) => {
+              const f = freshness(s.computed_at, s.max_staleness_minutes);
+              return (
+                <Card key={s.source}>
+                  <CardBody>
+                    <div className="flex items-center justify-between gap-sm">
+                      <span className="text-[15px] font-semibold capitalize text-text">
+                        {s.source}
+                      </span>
+                      <Badge tone={f.fresh ? 'success' : 'warning'}>{f.label}</Badge>
+                    </div>
+                    <div className="mt-1 text-[12px] text-text-muted">
+                      captured {formatTs(s.computed_at)} · {f.minsAgo}m ago
+                    </div>
+                    <div className="mt-1 text-[12px] text-text-muted">
+                      max staleness {s.max_staleness_minutes ?? '—'}m
+                      {s.cost_usd != null && ` · $${Number(s.cost_usd).toFixed(3)}`}
+                    </div>
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-[12px] text-accent hover:underline">
+                        View captured data
+                      </summary>
+                      <pre className="mt-2 max-h-64 overflow-auto rounded bg-surface p-2 text-[11px] text-text-muted whitespace-pre-wrap break-words">
+                        {JSON.stringify(s.summary, null, 2)}
+                      </pre>
+                    </details>
+                  </CardBody>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       {!data && (
         <Card>
