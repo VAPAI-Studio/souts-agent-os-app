@@ -11,7 +11,7 @@
  */
 import 'server-only';
 
-export type ServiceState = 'ok' | 'slow' | 'auth_pending' | 'down';
+export type ServiceState = 'ok' | 'slow' | 'auth_pending' | 'auth_refresh' | 'down';
 
 export interface ServiceProbe {
   service: 'modal' | 'supabase' | 'slack' | 'slack_bot' | 'gmail' | 'drive' | 'calendar' | 'notion';
