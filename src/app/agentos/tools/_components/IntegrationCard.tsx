@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import type { IntegrationDef } from '../_data/registry';
 import { ToolsDrillIn } from './ToolsDrillIn';
+import { disconnectIntegrationAction } from '../_actions';
 
 interface IntegrationCardProps {
   integration: IntegrationDef;
@@ -47,8 +49,29 @@ function buildOAuthInitUrl(integrationKey: string): string {
 
 export function IntegrationCard({ integration, connected }: IntegrationCardProps) {
   const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const panelId = `tools-drill-${integration.key}`;
   const toolCount = integration.tools.length;
+
+  function handleDisconnect() {
+    if (
+      !window.confirm(
+        `Disconnect ${integration.label}? The agent will stop using this source until you reconnect it.`,
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await disconnectIntegrationAction(integration.key);
+      if (!result.ok) {
+        window.alert(`Could not disconnect: ${result.error}`);
+        return;
+      }
+      setOpen(false);
+      router.refresh(); // re-fetch the page so the badge flips to "Not connected"
+    });
+  }
 
   const oauthUrl = buildOAuthInitUrl(integration.key);
   const connectLabel = `Connect ${integration.label}`;
@@ -92,6 +115,17 @@ export function IntegrationCard({ integration, connected }: IntegrationCardProps
                   aria-controls={panelId}
                 >
                   Tools
+                </Button>
+              )}
+              {connected && (
+                <Button
+                  intent="ghost"
+                  size="sm"
+                  onClick={handleDisconnect}
+                  disabled={isPending}
+                  data-testid={`tools-disconnect-${integration.key}`}
+                >
+                  {isPending ? 'Disconnecting…' : 'Disconnect'}
                 </Button>
               )}
               {!connected && !integration.placeholder && (
