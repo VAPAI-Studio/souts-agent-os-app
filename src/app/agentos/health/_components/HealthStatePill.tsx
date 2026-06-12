@@ -15,6 +15,7 @@ const STATE_LABELS: Record<ServiceState, string> = {
   ok: 'OK',
   slow: 'Slow',
   auth_pending: 'Auth pending',
+  auth_refresh: 'Auto-refresh',
   down: 'Down',
 };
 
@@ -24,6 +25,9 @@ const STATE_TONES: Record<ServiceState, BadgeTone> = {
   ok: 'success',
   slow: 'warning',
   auth_pending: 'warning',
+  // auth_refresh = token expired but the agent auto-refreshes at use-time;
+  // not an outage, so warning (amber) not destructive (red).
+  auth_refresh: 'warning',
   down: 'destructive',
 };
 
