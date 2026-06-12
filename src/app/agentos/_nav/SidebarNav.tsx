@@ -36,6 +36,8 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { label: 'Agents', href: '/agentos/agents', testId: 'nav-agents' },
   { label: 'Vault', href: '/agentos/vault', testId: 'nav-vault' },
   { label: 'Projects', href: '/agentos/projects', testId: 'nav-projects' },
+  // Phase 29 / Plan 29-02: Perception layer — diffs + work-state + per-actor (admin-only).
+  { label: 'Perception', href: '/agentos/perception', testId: 'nav-perception', adminOnly: true },
   // Plan 09-02: Cost analytics dashboard — all agentos roles can view.
   { label: 'Costs', href: '/agentos/costs', testId: 'nav-costs' },
   { label: 'Logs', href: '/agentos/logs', testId: 'nav-logs' },
